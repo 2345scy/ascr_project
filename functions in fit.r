@@ -83,12 +83,8 @@ capture.fun = function(capt){
 }
 
 
-
-
 #################################################################################################
-#requirement of "traps" is the same as "create.capt" function. It is possible to add any features
-#refer to traps only into "traps", but the first 2 columns must be coordinates
-#"dims" is one of the output component of "capture.fun"
+
 trap.fun = function(traps, dims){
   stopifnot(any(class(traps) == 'list', is.data.frame(traps), is.matrix(traps)))
   n.sessions = dims$n.sessions
@@ -120,9 +116,12 @@ trap.fun = function(traps, dims){
 
 
 par.extend.fun = function(par.extend = par.extend, data.full = data.full){
-  namelist.par.extend = c('g0', 'sigma', 'lambda0', 'zeta', 'shape1', 
-                          'shape2', 'scale', 'ss.beta0', 'ss.beta1',
-                          'ss.beta2', 'ss.sigma', 'kappa', 'alpha', 'sigma.toa')
+  namelist.par.extend = c('g0', 'sigma', 'lambda0', 'z', 'shape.1', 
+                          'shape.2', 'shape', 'scale', 'b0.ss', 'b1.ss',
+                          'b2.ss', 'sigma.ss', 'kappa', 'alpha', 'sigma.toa')
+  
+  par.extend.name = character(0)
+  
   if(!is.null(par.extend)){
     stopifnot('data' %in% names(par.extend))
     input_data = par.extend$data
@@ -152,8 +151,8 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full){
       if(!all(c("model", "link") %in% names(input))){
         stop("input for each extended parameter must contains 'model' and 'link'")
       }
-      if(!input$link %in% c('identical', 'log', 'logit')){
-        stop('Currently only "identical", "log", "logit" are supported as link function for extended parameters')
+      if(!input$link %in% c('identity', 'log', 'logit')){
+        stop('Currently only "identity", "log", "logit" are supported as link function for extended parameters')
       }
       
       
@@ -231,12 +230,12 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full){
                              stringsAsFactors = FALSE)
   }
   
-  return(list(data.full = data.full, link = df.for.link))
+  return(list(data.full = data.full, link = df.for.link, par.extend.name = par.extend.name))
 }
 
 
 ###################################################################################
-mask.fun = function(mask, dims, data.traps){
+mask.fun = function(mask, dims, data.traps, data.full, info.types, local){
   
   stopifnot(any(class(mask) == 'list', is.data.frame(mask), is.matrix(mask)))
   n.sessions = dims$n.sessions
@@ -258,6 +257,7 @@ mask.fun = function(mask, dims, data.traps){
   A <- numeric(n.sessions)
   buffer <- numeric(n.sessions)
   dists <- vector(mode = "list", length = n.sessions)
+  
   for (i in 1:n.sessions){
     traps = data.traps[data.traps$session == i, c("trap_x", "trap_y")]
     
@@ -284,7 +284,455 @@ mask.fun = function(mask, dims, data.traps){
     attr(mask[[i]], "area") <- A[i]
     attr(mask[[i]], "buffer") <- buffer[i]
   }
+################################################################################  
+  #deal with local argument (question remains, needs Ben's help)
+  all.which.local <- vector(mode = "list", length = n.sessions)
+  all.n.local <- vector(mode = "list", length = n.sessions)
   
+  if ("mrds" %in% info.types){
+    local <- TRUE
+    for (i in 1:n.sessions){
+      
+      if(dims$n.IDs[i] > 0){
+        mrds = data.full[data.full$session == i, c("mrds_x", "mrds_y")]
+        mrds = mrds[!duplicated(mrds),]
+        all.which.local[[i]] <- find.nearest.mask(as.matrix(mrds), mask.m[[i]])
+        all.n.local[[i]] <- laply(all.which.local[[i]], length)
+        all.which.local[[i]] <- c(all.which.local[[i]], recursive = TRUE)
+      } else {
+        
+      }
+      
+    }
+  } else if (local){
+    is.animal_ID = "animal_ID" %in% colnames(data.full)
+    for (i in 1:n.sessions){
+      if(dims$n.IDs[i] > 0){
+        if(is.animal_ID){
+          bincapt = data.full[data.full$session == i, c("bincapt","animal_ID", "ID")]
+          bincapt = aggregate(bincapt$bincapt, list(animal_ID = bincapt$animal_ID,
+                                                    ID = bincapt$ID),
+                              function(x) t(x))
+          bincapt = bincapt[, -c(1,2)]
+        } else {
+          bincapt = data.full[data.full$session == i, c("bincapt","ID")]
+          bincapt = aggregate(bincapt$bincapt, list(ID = bincapt$ID),
+                              function(x) t(x))
+          bincapt = bincapt[, -1]
+        }
+        
+        all.which.local[[i]] <- find_local(bincapt, dists[[i]], buffer[i])
+        all.n.local[[i]] <- laply(all.which.local[[i]], length)
+        all.which.local[[i]] <- c(all.which.local[[i]], recursive = TRUE)
+      } else {
+        all.n.local[[i]] = NULL
+        all.which.local[[i]] = NULL
+      }
+    }
+  } else {
+    for (i in 1:n.sessions){
+      if(dims$n.IDs[i] > 0){
+        all.n.local[[i]] <- rep(1, dims$n.IDs[i])
+        all.which.local[[i]] <- rep(0, dims$n.IDs[i])
+      } else {
+        all.n.local[[i]] <- NULL
+        all.which.local[[i]] <- NULL
+      }
+    }
+  }
   
-  return(list(mask = mask, dists = dists, n.masks = n.masks, A = A, buffer = buffer))
+################################################################################ 
+  
+  return(list(mask = mask, dists = dists, n.masks = n.masks, A = A, buffer = buffer,
+              local = local, all.which.local=all.which.local, all.n.local= all.n.local))
 }
+
+
+###########################################################################
+
+ihd.fun = function(ihd.opts, mask, dims, info.types){
+  n.sessions = dims$n.sessions
+  n.masks = dims$n.masks
+  
+  if(!is.null(ihd.opts)){
+    if(class(ihd.opts) != 'list'){
+      stop("'ihd.opts' must be a list with 'model', 'covariates' and 'scale' (optional)")
+    }
+    
+    if(!all(names(ihd.opts) %in% c('model', 'covariates', 'scale'))){
+      stop("'ihd.opts' must be a list with 'model', 'covariates' and 'scale' (optional)")
+    }
+    
+    if(is.null(ihd.opts$model)) stop("'model' is compulsory.")
+    
+    covariates = ihd.opts$covariates
+    model = ihd.opts$model
+    cov.scale = ihd.opts$scale
+    
+    if(is.null(cov.scale)) cov.scale = TRUE
+    if(!is.formula(model) | length(as.character(model)) != 2){
+      stop("'model' must be a formula begins with '~'")
+    }
+    
+    if(!is.null(covariates)){
+      stopifnot(any(class(covariates) == 'list', is.data.frame(covariates), 
+                    is.matrix(covariates)))
+      
+      if(any(class(covariates) == "list" & length(covariates) == 1, 
+             is.data.frame(covariates), is.matrix(covariates))){
+        tem.covariates = vector('list', n.sessions)
+        for(i in 1:n.sessions){
+          if(class(covariates) == 'list') tem.covariates[[i]] = covariates[[1]]
+          if(is.data.frame(covariates) | is.matrix(covariates)) tem.covariates[[i]] = covariates
+        }
+        covariates = tem.covariates
+      } else {
+        stopifnot(length(covariates) == n.sessions) 
+      }
+      
+      if(!all(sapply(covariates, nrow) == n.masks)){
+        stop("Each data frame of 'covariates' should provide covariate values at each mask point")
+      }
+      
+      for(i in 1:n.sessions){
+        covariates[[i]] = as.data.frame(covariates[[i]], stringsAsFactors = FALSE)
+        if(any(c('x','y') %in% colnames(covariates[[i]]))) {
+          stop("Covariate names 'x' and 'y' are reserved for x- and y-coordiates.")
+        }
+        covariates[[i]] = cbind(covariates[[i]], 
+                                as.data.frame(mask[[i]], stringsAsFactors = FALSE))
+      }
+    } else {
+      if(model!=~1){
+        stop('please provide corresponding covariates')
+      }
+      covariates = vector('list', n.sessions)
+      for(i in 1:n.sessions){
+        covariates[[i]] = as.data.frame(mask[[i]], stringsAsFactors = FALSE)
+      }
+    }
+    
+    all.covariates = do.call('rbind', covariates)
+    ################################################
+    
+    if(cov.scale){
+      for(i in 1:ncol(all.covariates)){
+        if(is.numeric(all.covariates[[i]])){
+          tem = all.covariates[[i]]
+          tem.mean = mean(x)
+          tem.sd = sd(x)
+          if(tem.sd!=0) all.covariates[[i]] = (tem - tem.mean)/tem.sd
+        }
+      }
+    }
+    
+    #########################################
+    all.covariates$gam.resp = 0
+    
+    if(model!=~1){
+      model.formula = paste0("gam.resp", paste(as.character(model), collapse = ""))
+      model.formula = as.formula(paste0(model.formula, "+te(x,y)"))
+    } else {
+      model.formula = as.formula("gam.resp~te(x,y)")
+    }
+    
+    tem.fit = gam(model.formula, data = all.covariates, fit = FALSE)
+    design.matrix = as.data.frame(tem.fit$X)
+    colnames(design.matrix) = paste0("D_", colnames(design.matrix))
+    
+    which.session <- rep(1:n.sessions, times = n.masks)
+    data.ihd = vector('list', n.sessions)
+    for (i in 1:n.sessions){
+      data.ihd[[i]] <- design.matrix[which.session == i, , drop = FALSE]
+    }
+    
+    info.types = c(info.types, "ihd")
+    
+  } else {
+    data.ihd = vector('list', n.sessions)
+    for (i in 1:n.sessions){
+      data.ihd[[i]] <- data.frame(tem = rep(1, n.masks[i]))
+      colnames(data.ihd[[i]])[1] = "D_(Intercept)"
+    }
+  }
+  
+  return(data.ihd)
+  
+}
+
+
+#############################################################################
+ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
+  cutoff <- ss.opts$cutoff
+  ss.link <- ss.opts$ss.link
+  directional <- ss.opts$directional
+  het.source <- ss.opts$het.source
+  het.source.method <- ss.opts$het.source.method
+  n.dir.quadpoints <- ss.opts$n.dir.quadpoints
+  n.het.source.quadpoints <- ss.opts$n.het.source.quadpoints
+  
+  
+  fit.ss = "ss" %in% info.types
+  
+  
+  if(fit.ss){
+    ## Warning for unexpected component names.
+    if (!all(names(ss.opts) %in% c("cutoff", "het.source", "het.source.method", 
+                                   "n.het.source.quadpoints", "directional", 
+                                   "n.dir.quadpoints", "ss.link"))){
+      warning("Components of 'ss.opts' may only consist of \"cutoff\", \"het.source\", 
+            \"het.source.method\", \"n.het.source.quadpoints\", \"directional\",  
+            \"n.dir.quadpoints\", \"ss.link\"; 
+            others are being ignored.")
+    }
+    
+    if(is.null(ss.opts)) stop("Argument 'ss.opts' is missing.")
+    if(is.null(cutoff)) stop("The 'cutoff' component of 'ss.opts' must be specified.")
+    
+    ## Setting default values for het.source and directional, ss.link.
+    
+    ## By default, directional calling model is only used if b2.ss appears in sv or fix.
+    if (is.null(directional)){
+      if (is.null(sv$b2.ss) & is.null(fix$b2.ss)){
+        directional <- FALSE
+      } else {
+        directional <- TRUE
+      }
+    }
+    
+    #make detailed and final judgment about ss.het, and settle some basic settings
+    if (!directional){
+      if (!is.null(sv$b2.ss) | !is.null(fix$b2.ss)){
+        warning("As the 'directional' component of 'ss.opts' is FALSE, 
+        the values of parameter b2.ss in 'sv' and 'fix' are being ignored")
+      }
+      sv$b2.ss <- 0
+      fix$b2.ss <- 0
+      n.dir.quadpoints = NULL
+    } else {
+      if(!is.null(fix$b2.ss)){
+        if(fix$b2.ss != 0) {
+          info.types = c(info.types, "ss.dir")
+        } else {
+          warning("'fix$b2.ss' is zero, 
+                  all corresponding parameters of 'directional' are ignored")
+          directional = FALSE
+          sv$b2.ss <- 0
+          n.dir.quadpoints = NULL
+        }
+      } else {
+        info.types = c(info.types, "ss.dir")
+      }
+    }
+    
+    #after settling down all basic info of ss.dir, set default n.dir.quadpoints
+    if (directional){
+      if (is.null(n.dir.quadpoints)){
+        n.dir.quadpoints <- 8
+      }
+    } else {
+      n.dir.quadpoints <- 1
+    }
+    
+    ## By default, heterogeneity source strength model is only
+    ## used if sigma.b0.ss appears in sv or fix, or het.source.method is specified
+    if (is.null(het.source)){
+      if (all(is.null(sv$sigma.b0.ss),
+              is.null(fix$sigma.b0.ss),
+              is.null(het.source.method))){
+        het.source <- FALSE
+      } else {
+        het.source <- TRUE
+      }
+    }
+    
+    #make detailed and final judgment about ss.het, and settle some basic settings
+    if (het.source){
+      if (is.null(het.source.method)){
+        het.source.method <- "GH"
+      }
+      if(!is.null(fix$sigma.b0.ss)){
+        if(fix$sigma.b0.ss != 0) {
+          info.types = c(info.types, "ss.het")
+        } else {
+          warning("'fix$sigma.b0.ss' is zero, 
+                  all corresponding parameters of 'het.source' are ignored")
+          het.source = FALSE
+          sv$sigma.b0.ss = 0
+          het.source.method = NULL
+          n.het.source.quadpoints = NULL
+        }
+      } else {
+        info.types = c(info.types, "ss.het")
+      }
+    } else {
+      ## Fixing sigma.b0.ss to 0 if a heterogeneous source
+      ## strength model is not being used.
+      if (!is.null(sv$sigma.b0.ss) | !is.null(fix$sigma.b0.ss)){
+        warning("As the 'het.source' component of 'ss.opts' is FALSE, 
+        the values of the parameter sigma.b0.ss in 'sv' and 'fix' are being ignored")
+      }
+      sv$sigma.b0.ss <- 0
+      fix$sigma.b0.ss <- 0
+      het.source.method = NULL
+      n.het.source.quadpoints = NULL
+    }
+    
+    #after settling down basic settings, assign default value to n.het...
+    if (het.source){
+      if (is.null(n.het.source.quadpoints)){
+        n.het.source.quadpoints <- 15
+      }
+    } else {
+      n.het.source.quadpoints <- 1
+    }
+    
+    ## Setting het.source.gh.
+    if (het.source){
+      het.source.gh <- het.source.method == "GH"
+    } else {
+      het.source.gh <- FALSE
+    }
+    
+    het.source.nodes <- 0
+    het.source.weights <- 0
+    if(het.source){
+      if(het.source.method == "GH"){
+        Hd <- gaussHermiteData(n.het.source.quadpoints)
+        het.source.nodes <- GHd$x
+        het.source.weights <- GHd$w
+      }
+    }
+    
+    
+    ##################################################################
+    #simple check and simple argument adjustment
+    if(all(c("ss.dir", "ss.het") %in% info.types)){
+      stop("Fitting of models with both heterogeneity in source signal strength 
+       and directional calling is not yet implemented.")
+    }
+    
+    #set default for ss.link
+    if (is.null(ss.link)){
+      ss.link <- "identity"
+    } else if (!(ss.link %in% c("identity", "log", "spherical"))){
+      stop("Component 'ss.link' in 'ss.opts' must be \"identity\", \"log\", or \"spherical\".")
+    }
+    
+    ## Error thrown for model with heterogeneity in source strength and a log-link function.
+    if ("ss.het" %in% info.types){
+      if (ss.link != "identity"){
+        stop("Fitting of signal strength models with heterogeneity in source 
+         signal strength is only implemented with an identity link function.")
+      }
+    }
+    
+    #record ss.link
+    tem = nrow(df.link)
+    df.link[tem + 1, 1] = "ss"
+    df.link[tem + 1, 2] = ss.link
+    
+    
+    #data.full$ss = NA observations are generated by the previous par.extend()
+    #because the session in which no call is detected still contains useful
+    #information such as trap level covariates (e.g. detector's brand) and 
+    #session level covariates (e.g. weather).
+    #in this case, they are merged into the data.full without bincapt nor ss etc.
+    #so we generated NA in that merge step.
+    #if one call is detected by trap 1 but not trap 2, "ss" will be recorded as 0
+    data.ss = subset(data.full, !is.na(ss))
+    data.ss.na = subset(data.full, is.na(ss))
+    
+    
+    #adjust all capture history to zero if "ss" < cutoff, and then remove the observations if
+    #there is no capture history for that "ID"
+    rem = data.ss$ss < cutoff
+    for(i in c('bincapt', 'ss', 'bearing', 'toa', 'dist')){
+      data.ss[[i]] = ifelse(rem, 0, data.ss[[i]])
+    }
+    
+    is.animal_ID = !is.null(dims$n.animals)
+    if(is.animal_ID){
+      keep = aggregate(data.ss$bincapt, list(session = data.ss$session, 
+                                             animal_ID = data.ss$animal_ID, 
+                                             ID = data.ss$ID), sum)
+    } else {
+      keep = aggregate(data.ss$bincapt, list(session = data.ss$session, 
+                                             ID = data.ss$ID), sum)
+    }
+    
+    keep = subset(keep, x > 0)
+    colnames(keep)[3] = "keep"
+    data.ss = merge(data.ss, keep, by = c("session", "animal_ID"[is.animal_ID], "ID"), all = TRUE)
+    data.ss = subset(data.ss, !is.na(data.ss$keep))
+    data.ss = data.ss[,-which(colnames(data.ss) == "keep")]
+    data.full = rbind(data.ss, data.ss.na)
+    
+    
+    #refresh "dims"
+    if(is.animal_ID){
+      new.n.animal_IDs = aggregate(data.ss$animal_ID, list(session = data.ss$session), 
+                                   function(x) length(unique(x)))
+      new.n.IDs = aggregate(paste0(data.ss$animal_ID, "-", data.ss$ID), list(session = data.ss$session), 
+                            function(x) length(unique(x)))
+      dims$n.animals[new.n.animal_IDs$session] = new.n.animal_IDs$x
+      
+    } else {
+      new.n.IDs = aggregate(data.ss$ID, list(session = data.ss$session), 
+                            function(x) length(unique(x)))
+    }
+    
+    n.removed = sum(dims$n.IDs) - sum(new.n.IDs$x)
+    if(n.removed > 0){
+      message(n.removed, " capture history entries have no received signal 
+            strengths above the cutoff and have therefore been removed.\n", sep = "")
+    }
+    
+    dims$n.IDs[new.n.IDs$session] = new.n.IDs$x
+    
+    #modified ss.opts, contains much condensed and regular information
+    ss.opts = list(het.source.method = het.source.method,
+                   n.dir.quadpoints= n.dir.quadpoints,
+                   n.het.source.quadpoints = n.het.source.quadpoints,
+                   het.source.nodes = het.source.nodes,
+                   het.source.weights = het.source.weights)
+    
+    
+  } else {
+    if (!is.null(ss.opts)){
+      warning("Argument 'ss.opts' is being ignored as a signal 
+            strength model is not being fitted.")
+    }
+    
+    ss.opts <- NULL
+    
+    if(any(!is.null(sv$b0.ss),
+           !is.null(sv$b1.ss),
+           !is.null(sv$b2.ss),
+           !is.null(sv$sigma.ss),
+           !is.null(sv$sigma.b0.ss),
+           !is.null(fix$b0.ss),
+           !is.null(fix$b1.ss),
+           !is.null(fix$b2.ss),
+           !is.null(fix$sigma.ss),
+           !is.null(fix$sigma.b0.ss))){
+      warning(paste0("Not 'ss' model, coresponding parameters specified in", 
+                     "'sv' or 'fix' will be ignored"))
+    }
+    sv$b0.ss = 0
+    sv$b1.ss = 0
+    sv$b2.ss = 0
+    sv$sigma.ss = 0
+    sv$sigma.b0.ss = 0
+    
+    fix$b0.ss = 0
+    fix$b1.ss = 0
+    fix$b2.ss = 0
+    fix$sigma.ss = 0
+    fix$sigma.b0.ss = 0
+  }
+  
+  return(list(data.full = data.full, dims = dims, sv = sv, fix = fix,
+              ss.opts = ss.opts, link = df.link, info.types = info.types))
+}
+
