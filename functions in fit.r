@@ -14,7 +14,7 @@ capture.fun = function(capt){
       n.animals = NULL
     }
     n.IDs = nrow(capt$bincapt)
-    info.types <- all.types[all.types %in% names(capt)]
+    bucket_info <- all.types[all.types %in% names(capt)]
     is.mrds = "mrds" %in% names(capt)
     
   } else {
@@ -28,7 +28,7 @@ capture.fun = function(capt){
       n.animals = NULL
     }
     n.IDs = sapply(capt, function(x) nrow(x$bincapt))
-    info.types <- all.types[all.types %in% names(capt[[1]])]
+    bucket_info <- all.types[all.types %in% names(capt[[1]])]
     is.mrds = "mrds" %in% names(capt[[1]])
     
   }
@@ -56,7 +56,7 @@ capture.fun = function(capt){
       }
       
       tem.df$trap = rep(1:n.traps[i], each = n.IDs[i])
-      for(k in c('bincapt', info.types)) tem.df[[k]] = as.vector(tem[[k]])
+      for(k in c('bincapt', bucket_info)) tem.df[[k]] = as.vector(tem[[k]])
       
       if(is.mrds){
         tem$mrds = as.data.frame(tem$mrds, stringsAsFactors = FALSE)
@@ -66,7 +66,8 @@ capture.fun = function(capt){
         } else {
           tem.mrds = merge(tem.df, tem$mrds, by = "ID")
         }
-        
+        tem.df = tem.df[order(tem.df$session, tem.df$ID, tem.df$trap),]
+        tem.mrds = tem.mrds[order(tem.mrds$session, tem.mrds$ID, tem.mrds$trap),]
         tem.df$mrds_x = tem.mrds$V1
         tem.df$mrds_y = tem.mrds$V2
       }
@@ -78,7 +79,7 @@ capture.fun = function(capt){
   data.capt = data.capt[order(data.capt$session, data.capt$ID, data.capt$trap),]
   return(list(data.capt = data.capt, dims = list(n.sessions = n.sessions, n.traps = n.traps,
                                                  n.IDs = n.IDs, n.animals = n.animals),
-              info.types = c(info.types, "mrds"[is.mrds])))
+              bucket_info = c(bucket_info, "mrds"[is.mrds])))
   
 }
 
@@ -112,134 +113,15 @@ trap.fun = function(traps, dims){
   return(do.call("rbind", traps))
 }
 
-###############################################################################
-
-
-par.extend.fun = function(par.extend = par.extend, data.full = data.full){
-  namelist.par.extend = c('g0', 'sigma', 'lambda0', 'z', 'shape.1', 
-                          'shape.2', 'shape', 'scale', 'b0.ss', 'b1.ss',
-                          'b2.ss', 'sigma.ss', 'kappa', 'alpha', 'sigma.toa')
-  
-  par.extend.name = character(0)
-  
-  if(!is.null(par.extend)){
-    stopifnot('data' %in% names(par.extend))
-    input_data = par.extend$data
-    par.extend.name = names(par.extend)[-which(names(par.extend) == 'data')]
-    if(length(par.extend.name) == 0) stop("please provide at least one parameter for extension")
-    stopifnot(all(par.extend.name %in% namelist.par.extend))
-    
-    
-    #######################################################
-    #check input
-    stopifnot(all(sapply(input_data,class) == 'data.frame') & class(input_data) == 'list')
-    if(!all(names(input_data) %in% c('session', 'trap', 'ID', 'animal_ID'))){
-      stop('Currently only "session", "trap", "ID", "animal_ID" are acceptable data input')
-    }
-    #check the component of data
-    for(k in names(input_data)){
-      if(!all(c("session", k) %in% colnames(input_data[[k]]))){
-        tem = ifelse(k == 'session', " ", paste0(" and '", k, "' "))
-        msg = paste0("In the data of ", k, ", columns of 'session'", tem, "must be provided")
-        stop(msg)
-      }
-    }
-    #check other components one by one
-    for(i in par.extend.name){
-      input = par.extend[[i]]
-      stopifnot(class(input) == 'list')
-      if(!all(c("model", "link") %in% names(input))){
-        stop("input for each extended parameter must contains 'model' and 'link'")
-      }
-      if(!input$link %in% c('identity', 'log', 'logit')){
-        stop('Currently only "identity", "log", "logit" are supported as link function for extended parameters')
-      }
-      
-      
-      
-      #check whether the variables in the 'model' argument are all provided by the data
-      formula.check = strsplit(unique(trimws(strsplit(input$model, "\\+|\\*|\\:")[[1]])), "_")
-      for(k in 1:length(formula.check)){
-        stopifnot(length(formula.check[[k]]) > 1)
-        tem = formula.check[[k]]
-        names(formula.check)[k] = tem[1]
-        formula.check[[k]] = tem[2:length(tem)]
-      }
-      
-      if(!all(names(formula.check) %in% names(input_data))){
-        stop("please provide data for all information included in the argument 'model'")
-      }
-      
-      for(k in names(formula.check)){
-        if(!all(formula.check[[k]] %in% colnames(input_data[[k]]))){
-          msg = paste0("Please provide variable(s) of '", paste(formula.check[[k]], collapse = "', '"), 
-                       "' in the data of '",k, "'")
-          stop(msg)
-        }
-      }
-      
-    }
-    
-    #################################################
-    #deal with data first
-    
-    is.animalID = "animal_ID" %in% colnames(data.full)
-    tem.data = data.full[,c("session", "animal_ID"[is.animalID], 'trap', 'ID')]
-    input_data = par.extend$data
-    
-    for(k in names(input_data)){
-      tem = which(!names(input_data[[k]]) %in% c('session', k))
-      names(input_data[[k]])[tem] = paste0(k,'_', names(input_data[[k]])[tem])
-      tem.data = merge(tem.data, input_data[[k]], by = c('session', k[!k == 'session']), all = TRUE)
-      
-    }
-    tem.data$pseudo_y = 1
-    
-    df.for.link = data.frame(name = par.extend.name, link = character(length(par.extend.name)),
-                             stringsAsFactors = FALSE)
-    
-    for(i in par.extend.name){
-      input = par.extend[[i]]
-      #extract the columns index which will be used for this extended parameter
-      tem.index = which(colnames(tem.data) %in% unique(trimws(strsplit(input$model, '\\+|\\*|\\:')[[1]])))
-      #get the subset which will be used for this extended parameter
-      tem = subset(tem.data,apply(!is.na(tem.data[,tem.index]), 1, all))
-      foo = paste0('pseudo_y~', input$model)
-      X = gam(as.formula(foo), data = tem, fit = FALSE)$X
-      X = as.data.frame(X)
-      colnames(X) = paste0(i, '_', colnames(X))
-      X = cbind(tem[, c('session', 'trap', 'animal_ID'[is.animalID], 'ID')], X)
-      data.full = merge(data.full, X, by = c('session', k[!k == 'session'], 'trap', 'ID'), all.x = TRUE)
-      df.for.link[which(df.for.link$name == i), "link"] = input$link
-      
-    }
-    
-    par.std.name = namelist.par.extend[!namelist.par.extend %in% par.extend.name]
-    
-    for(i in par.std.name){
-      data.full[[paste0(i, '_(Intercept)')]] = 1
-    }
-
-  }
-  else{
-    for(i in namelist.par.extend){
-      data.full[[paste0(i, '_(Intercept)')]] = 1
-    }
-    
-    df.for.link = data.frame(name = character(0), link = character(0), 
-                             stringsAsFactors = FALSE)
-  }
-  
-  return(list(data.full = data.full, link = df.for.link, par.extend.name = par.extend.name))
-}
-
 
 ###################################################################################
-mask.fun = function(mask, dims, data.traps, data.full, info.types, local){
+
+mask.fun = function(mask, dims, data.traps, data.full, bucket_info, local){
   
   stopifnot(any(class(mask) == 'list', is.data.frame(mask), is.matrix(mask)))
   n.sessions = dims$n.sessions
   n.traps = dims$n.traps
+  n.IDs = dims$n.IDs
   
   if(any(class(mask) == "list" & length(mask) == 1, is.data.frame(mask), is.matrix(mask))){
     tem.mask = vector('list', n.sessions)
@@ -257,6 +139,7 @@ mask.fun = function(mask, dims, data.traps, data.full, info.types, local){
   A <- numeric(n.sessions)
   buffer <- numeric(n.sessions)
   dists <- vector(mode = "list", length = n.sessions)
+  tem.df = vector('list', n.sessions)
   
   for (i in 1:n.sessions){
     traps = data.traps[data.traps$session == i, c("trap_x", "trap_y")]
@@ -266,9 +149,15 @@ mask.fun = function(mask, dims, data.traps, data.full, info.types, local){
     }
     
     colnames(mask[[i]]) = c('x', 'y')
-    
     mask[[i]] <- as.matrix(mask[[i]])
     dists[[i]] <- distances(as.matrix(traps), mask[[i]])
+    
+    n.rows = n.traps[i] * n.masks[i]
+    tem.dist = data.frame(mask = rep(1:n.masks[i], each = n.traps[i]), 
+                          trap = rep(1:n.traps[i], n.masks[i]),
+                          dx = as.vector(dists[[i]]))
+    
+    
     ## Filling in area and buffer, if missing.
     if (is.null(attr(mask[[i]], "area"))){
       mask.dists <- distances(mask[[i]], mask[[i]])
@@ -276,205 +165,394 @@ mask.fun = function(mask, dims, data.traps, data.full, info.types, local){
     } else {
       A[i] <- attr(mask[[i]], "area")
     }
+    
     if (is.null(attr(mask[[i]], "buffer"))){
       buffer[i] <- max(apply(dists[[i]], 2, min))
     } else {
       buffer[i] <- attr(mask[[i]], "buffer")
     }
-    attr(mask[[i]], "area") <- A[i]
-    attr(mask[[i]], "buffer") <- buffer[i]
+    attr(mask[[i]], "area") = A[i]
+    attr(mask[[i]], "buffer") = buffer[i]
+    
+    tem.df[[i]] = as.data.frame(mask[[i]], stringsAsFactors = FALSE)
+    tem.df[[i]]$mask = 1:nrow(mask[[i]])
+    tem.df[[i]]$session = i
+    tem.df[[i]] = merge(tem.df[[i]], tem.dist, by = 'mask')
   }
-################################################################################  
-  #deal with local argument (question remains, needs Ben's help)
+  
+  data.mask = do.call('rbind', tem.df)
+  
+  ################################################################################  
+  #deal with local argument
+  #sort it first, because later, in aggregate() step, 
+  #the result will be sorted automatically, however, u.id generated by unique() is not sorted
+  is.animal_ID = "animal_ID" %in% colnames(data.full)
+  if(is.animal_ID){
+    data.full = data.full[order(data.full$session, data.full$animal_ID, 
+                                data.full$ID, data.full$trap), ]
+  } else {
+    data.full = data.full[order(data.full$session, data.full$ID, data.full$trap), ]
+  }
+  
   all.which.local <- vector(mode = "list", length = n.sessions)
   all.n.local <- vector(mode = "list", length = n.sessions)
   
-  if ("mrds" %in% info.types){
+  
+  if ("mrds" %in% bucket_info){
     local <- TRUE
     for (i in 1:n.sessions){
       
-      if(dims$n.IDs[i] > 0){
+      if(n.IDs[i] > 0){
         mrds = data.full[data.full$session == i, c("mrds_x", "mrds_y")]
         mrds = mrds[!duplicated(mrds),]
-        all.which.local[[i]] <- find.nearest.mask(as.matrix(mrds), mask.m[[i]])
+        all.which.local[[i]] <- find.nearest.mask(as.matrix(mrds), mask[[i]])
         all.n.local[[i]] <- laply(all.which.local[[i]], length)
         all.which.local[[i]] <- c(all.which.local[[i]], recursive = TRUE)
-      } else {
-        
       }
       
     }
   } else if (local){
-    is.animal_ID = "animal_ID" %in% colnames(data.full)
+    
     for (i in 1:n.sessions){
-      if(dims$n.IDs[i] > 0){
+      if(n.IDs[i] > 0){
         if(is.animal_ID){
           bincapt = data.full[data.full$session == i, c("bincapt","animal_ID", "ID")]
           bincapt = aggregate(bincapt$bincapt, list(animal_ID = bincapt$animal_ID,
                                                     ID = bincapt$ID),
                               function(x) t(x))
+          
+          bincapt = bincapt[order(bincapt$animal_ID, bincapt$ID),]
           bincapt = bincapt[, -c(1,2)]
         } else {
           bincapt = data.full[data.full$session == i, c("bincapt","ID")]
           bincapt = aggregate(bincapt$bincapt, list(ID = bincapt$ID),
                               function(x) t(x))
+          bincapt = bincapt[order(bincapt$ID),]
           bincapt = bincapt[, -1]
         }
         
         all.which.local[[i]] <- find_local(bincapt, dists[[i]], buffer[i])
         all.n.local[[i]] <- laply(all.which.local[[i]], length)
         all.which.local[[i]] <- c(all.which.local[[i]], recursive = TRUE)
-      } else {
-        all.n.local[[i]] = NULL
-        all.which.local[[i]] = NULL
-      }
+      } 
     }
   } else {
     for (i in 1:n.sessions){
-      if(dims$n.IDs[i] > 0){
-        all.n.local[[i]] <- rep(1, dims$n.IDs[i])
-        all.which.local[[i]] <- rep(0, dims$n.IDs[i])
-      } else {
-        all.n.local[[i]] <- NULL
-        all.which.local[[i]] <- NULL
+      if(n.IDs[i] > 0){
+        all.n.local[[i]] <- rep(1, n.IDs[i])
+        all.which.local[[i]] <- rep(0, n.IDs[i])
       }
     }
   }
   
-################################################################################ 
+  
+  #prepare a data set for ID*mask since "local" or not is a ID*mask level variable
+  tem.df = vector('list', n.sessions)
+  u.id = vector('list', n.sessions)
+  #to avoid confusing, u.id is animal_ID-ID if is.animal_ID, and the "ID" column is
+  #temporarily to be animal_ID-ID as well until in the later step where we restore it
+  for(i in 1:n.sessions){
+    n.rows = n.IDs[i] * n.masks[i]
+    if(n.rows > 0){
+      tem = subset(data.full, session == i)
+      if(is.animal_ID){
+        u.id[[i]] = unique(paste0(tem[['animal_ID']], '-', tem[['ID']]))
+        tem.df[[i]] = data.frame(session = rep(i, n.rows),
+                                 ID = rep(u.id[[i]], each = n.masks[i]),
+                                 mask = rep(1:n.masks[i], n.IDs[i]))
+      } else {
+        u.id[[i]] = unique(tem[["ID"]])
+        tem.df[[i]] = data.frame(session = rep(i, n.rows),
+                                 ID = rep(u.id[[i]], each = n.masks[i]),
+                                 mask = rep(1:n.masks[i], n.IDs[i]))
+      }
+    }
+  }
+  
+  data.IDxmask = do.call('rbind', tem.df)
+  
+  tem.df = vector('list', n.sessions)
+  for(i in 1:n.sessions){
+    if(n.IDs[i] > 0){
+      if(local){
+        
+        tem.df[[i]] = data.frame(session = rep(i, sum(all.n.local[[i]])),
+                                 ID = rep(u.id[[i]], all.n.local[[i]]),
+                                 mask = all.which.local[[i]],
+                                 local = rep(1, sum(all.n.local[[i]])),
+                                 stringsAsFactors = FALSE)
+      } else {
+        tem.df[[i]] = data.frame(session = i, local = 1)
+      }
+    }
+  }
+  
+  tem = do.call('rbind', tem.df)
+  
+ 
+  data.local = merge(data.IDxmask, tem, 
+                     by=c('session', 'ID'[local], 'mask'[local]), all = TRUE)
+  
+  if(is.animal_ID){
+    data.local[['animal_ID']] = gsub("-(.+)", "", data.local[['ID']])
+    data.local[['ID']] = gsub("^(.+)-", "", data.local[["ID"]])
+  }
+  
+  tem = merge(data.local, data.mask, by = c('session', 'mask'), all = TRUE)
+  
+  tem$local = ifelse(is.na(tem$local), 0, tem$local)
+  
+
+  data.full = merge(data.full, tem, by = c('session', 'animal_ID'[is.animal_ID], 
+                                             'ID', 'trap'), all = TRUE)
+
+  
+  
   
   return(list(mask = mask, dists = dists, n.masks = n.masks, A = A, buffer = buffer,
-              local = local, all.which.local=all.which.local, all.n.local= all.n.local))
+              local = local, all.which.local=all.which.local, all.n.local= all.n.local,
+              data.full = data.full))
 }
 
 
-###########################################################################
 
-ihd.fun = function(ihd.opts, mask, dims, info.types){
+###############################################################################
+
+
+
+par.extend.fun = function(par.extend = par.extend, data.full = data.full, dims = dims){
+  namelist.par.extend = c('D', 'g0', 'sigma', 'lambda0', 'z', 'shape.1', 
+                          'shape.2', 'shape', 'scale', 'b0.ss', 'b1.ss',
+                          'b2.ss', 'sigma.ss', 'kappa', 'alpha', 'sigma.toa')
+  
   n.sessions = dims$n.sessions
+  n.IDs = dims$n.IDs
+  n.traps = dims$n.traps
   n.masks = dims$n.masks
   
-  if(!is.null(ihd.opts)){
-    if(class(ihd.opts) != 'list'){
-      stop("'ihd.opts' must be a list with 'model', 'covariates' and 'scale' (optional)")
+  is.animal_ID = "animal_ID" %in% colnames(data.full)
+  
+  if(!is.null(par.extend)){
+    if(!all(names(par.extend) %in% c('data', 'model', 'link', 'scale'))) {
+      stop("'par.extend' only accepts 'data', 'model', 'link' and 'scale' as input")
+    }
+    if(!all(c('data', 'model') %in% names(par.extend))){
+      stop("'data' and 'model' must be provided")
     }
     
-    if(!all(names(ihd.opts) %in% c('model', 'covariates', 'scale'))){
-      stop("'ihd.opts' must be a list with 'model', 'covariates' and 'scale' (optional)")
+    #check 'data' component first
+    input_data = par.extend$data
+    if(!all(names(input_data) %in% c('session', 'trap', 'ID', 'mask'))){
+      stop("only 'session', 'trap', 'ID' or 'mask' level data could be used as input")
     }
     
-    if(is.null(ihd.opts$model)) stop("'model' is compulsory.")
+    data.par.extend = data.frame(session = 1:n.sessions)
     
-    covariates = ihd.opts$covariates
-    model = ihd.opts$model
-    cov.scale = ihd.opts$scale
-    
-    if(is.null(cov.scale)) cov.scale = TRUE
-    if(!is.formula(model) | length(as.character(model)) != 2){
-      stop("'model' must be a formula begins with '~'")
+    #check 'session' level data
+    df.s = input_data$session
+    if(!is.null(df.s)){
+      stopifnot(class(df.s) == 'data.frame')
+      name.s = colnames(df.s)
+      stopifnot('session' %in% name.s)
+      stopifnot(length(name.s) > 1)
+      if(any(duplicated(df.s$session))) stop('duplicated "session" input')
+      stopifnot(df.s$session %in% unique(data.full$session))
+      var.s = name.s[-which(name.s == 'session')]
+      data.par.extend = merge(data.par.extend, df.s, by = 'session', all = TRUE)
+    } else {
+      var.s = NULL
     }
     
-    if(!is.null(covariates)){
-      stopifnot(any(class(covariates) == 'list', is.data.frame(covariates), 
-                    is.matrix(covariates)))
+    #check 'trap' level data
+    df.t = input_data$trap
+    if(!is.null(df.t)){
+      stopifnot(class(df.t) == 'data.frame')
+      name.t = colnames(df.t)
+      stopifnot(all(c('session', 'trap') %in% name.t))
+      stopifnot(length(name.t) > 2)
+      if(any(duplicated(df.t[, c('session', 'trap')]))) stop('duplicated "trap" input')
+      stopifnot(all(paste(df.t$session, df.t$trap, sep = '-') %in% 
+                      unique(paste(data.full$session, data.full$trap, sep = '-'))))
+      var.t = name.t[-which(name.t == 'session'| name.t == 'trap')]
+      data.par.extend = merge(data.par.extend, df.t, by = 'session', all = TRUE)
+    } else {
+      var.t = NULL
+    }
+    
+    #check 'ID' level data
+    df.I = input_data$ID
+    if(!is.null(df.I)){
+      stopifnot(class(df.I) == 'data.frame')
+      name.I = colnames(df.I)
+      stopifnot(all(c('session', 'animal_ID'[is.animal_ID], 'ID') %in% name.I))
+      stopifnot(length(name.I) > (2 + as.numeric(is.animal_ID)))
+      if(any(duplicated(df.I[, c('session', 'animal_ID'[is.animal_ID], 'ID')]))) stop('duplicated "ID" input')
       
-      if(any(class(covariates) == "list" & length(covariates) == 1, 
-             is.data.frame(covariates), is.matrix(covariates))){
-        tem.covariates = vector('list', n.sessions)
-        for(i in 1:n.sessions){
-          if(class(covariates) == 'list') tem.covariates[[i]] = covariates[[1]]
-          if(is.data.frame(covariates) | is.matrix(covariates)) tem.covariates[[i]] = covariates
-        }
-        covariates = tem.covariates
+      if(is.animal_ID){
+        stopifnot(all(paste(df.I$session, df.I$animal_ID, df.I$ID, sep = '-') %in% 
+                  unique(paste(data.full$session, data.full$animal_ID, data.full$ID, sep = '-'))))
+        var.I = name.I[-which(name.I == 'session'| name.I == 'ID' | name.I == 'animal_ID')]
       } else {
-        stopifnot(length(covariates) == n.sessions) 
+        stopifnot(all(paste(df.I$session, df.I$ID, sep = '-') %in% 
+                        unique(paste(data.full$session, data.full$ID, sep = '-'))))
+        var.I = name.I[-which(name.I == 'session'| name.I == 'ID')]
+      }
+
+      data.par.extend = merge(data.par.extend, df.I, by ='session', all = TRUE)
+    } else {
+      var.I = NULL
+    }
+    
+    #check 'mask' level data
+    df.m = input_data$mask
+    if(!is.null(df.m)){
+      stopifnot(is.list(df.m))
+      if(class(df.m) == 'list'){
+        stopifnot(length(df.m) == n.sessions)
+        stopifnot(sapply(df.m, nrow) == n.masks)
+        for(i in 1:n.sessions){
+          df.m[[i]][['session']] = i
+          df.m[[i]][['mask']] = 1:n.masks[i]
+        }
+        df.m = do.call('rbind', df.m)
+      } else {
+        stopifnot(n.sessions == 1)
+        stopifnot(nrow(df.m) == n.masks)
+        df.m[['session']] = 1
+        df.m[['mask']] = 1:n.masks
+      }
+      name.m = colnames(df.m)
+      var.m = name.m[-which(name.m == 'session'| name.m == 'mask')]
+      data.par.extend = merge(data.par.extend, df.m, by = 'session', all.x = TRUE)
+    } else {
+      var.m = NULL
+    }
+    
+    #check whether there is duplicated column names across these  data sets
+    
+    var.ex = c(var.s, var.t, var.I, var.m)
+    
+    if(any(duplicated(var.ex))) {
+      stop('duplicated column name across different level data sets')
+    }
+    
+    #check 'model'
+    
+    name.extend.par = names(par.extend$model)
+    if(!all(name.extend.par %in% namelist.par.extend)){
+      stop('one or more parameters indicated in "model" are not supported to be extended currently')
+    }
+    
+    foo = vector('list', length(name.extend.par))
+    
+    
+    #deal the extend parameters one by one
+    for(i in 1:length(name.extend.par)){
+      
+      #scale default is set as TRUE
+      if(is.null(par.extend$scale[[name.extend.par[i]]])){
+        is.scale = TRUE
+      } else {
+        is.scale = par.extend$scale[[name.extend.par[i]]]
       }
       
-      if(!all(sapply(covariates, nrow) == n.masks)){
-        stop("Each data frame of 'covariates' should provide covariate values at each mask point")
+      
+      foo[[i]] = as.formula(paste(c('pseudo_y',
+                                    as.character(par.extend$model[[name.extend.par[i]]])), collapse = ""))
+      tem.var = all.vars(foo[[i]][[3]])
+      if(length(tem.var) == 0) stop('please input a valid formula except "~ 1"')
+      tem = as.data.frame(lapply(data.par.extend[, tem.var], is.na), stringsAsFactors = FALSE)
+      index = apply(tem, 1, any)
+      tem.data = subset(data.par.extend, !index)
+      tem.data[['pseudo_y']] = 1
+      
+      
+      #here the name of 'scale' is not checked since it is unnecessary
+      for(j in tem.var){
+        if(is.scale){
+          if(class(tem.data[[j]]) == 'numeric'){
+            mu = mean(tem.data[[j]])
+            std = sd(tem.data[[j]])
+            tem.data[[j]] = (tem.data[[j]] - mu)/std
+          }
+        }
       }
       
-      for(i in 1:n.sessions){
-        covariates[[i]] = as.data.frame(covariates[[i]], stringsAsFactors = FALSE)
-        if(any(c('x','y') %in% colnames(covariates[[i]]))) {
-          stop("Covariate names 'x' and 'y' are reserved for x- and y-coordiates.")
-        }
-        covariates[[i]] = cbind(covariates[[i]], 
-                                as.data.frame(mask[[i]], stringsAsFactors = FALSE))
-      }
-    } else {
-      if(model!=~1){
-        stop('please provide corresponding covariates')
-      }
-      covariates = vector('list', n.sessions)
-      for(i in 1:n.sessions){
-        covariates[[i]] = as.data.frame(mask[[i]], stringsAsFactors = FALSE)
-      }
+      design.matrix = gam(foo[[i]], data = tem.data, fit = FALSE)$X
+      design.matrix = as.data.frame(design.matrix, stringsAsFactors = FALSE)
+      colnames(design.matrix) = paste(name.extend.par[i], "_", colnames(design.matrix))
+      design.matrix[['session']] = tem.data[['session']]
+      if(!is.null(tem.data[['trap']])) design.matrix[['trap']] = tem.data[['trap']]
+      if(!is.null(tem.data[['animal_ID']])) design.matrix[['animal_ID']] = tem.data[['animal_ID']]
+      if(!is.null(tem.data[['ID']])) design.matrix[['ID']] = tem.data[['ID']]
+      if(!is.null(tem.data[['mask']])) design.matrix[['mask']] = tem.data[['mask']]
+      data.par.extend = merge(data.par.extend, design.matrix, by = c('session', 
+                                                                     'trap'[!is.null(design.matrix[['trap']])],
+                                                                     'animal_ID'[!is.null(design.matrix[['animal_ID']])],
+                                                                     'ID'[!is.null(design.matrix[['ID']])],
+                                                                     'mask'[!is.null(design.matrix[['mask']])]), all = TRUE)
+      
     }
     
-    all.covariates = do.call('rbind', covariates)
-    ################################################
+    data.par.extend = data.par.extend[, -which(colnames(data.par.extend) %in% var.ex)]
     
-    if(cov.scale){
-      for(i in 1:ncol(all.covariates)){
-        if(is.numeric(all.covariates[[i]])){
-          tem = all.covariates[[i]]
-          tem.mean = mean(x)
-          tem.sd = sd(x)
-          if(tem.sd!=0) all.covariates[[i]] = (tem - tem.mean)/tem.sd
-        }
+    data.full = merge(data.full, data.par.extend, by = c('session',
+                                                         'trap'[!is.null(data.par.extend[['trap']])],
+                                                         'animal_ID'[!is.null(data.par.extend[['animal_ID']])],
+                                                         'ID'[!is.null(data.par.extend[['ID']])],
+                                                         'mask'[!is.null(data.par.extend[['mask']])]), all = TRUE)
+    
+    for(i in namelist.par.extend){
+      if(!i %in% name.extend.par){
+        data.full[[paste0(i, ' _ (Intercept)')]] = 1
       }
     }
     
-    #########################################
-    all.covariates$gam.resp = 0
     
-    if(model!=~1){
-      model.formula = paste0("gam.resp", paste(as.character(model), collapse = ""))
-      model.formula = as.formula(paste0(model.formula, "+te(x,y)"))
-    } else {
-      model.formula = as.formula("gam.resp~te(x,y)")
+    #finally, record the link, here we only check whether the name is in the full list of parameters,
+    #so technically, user could assign link function to any parameter here, but not recommended
+    df.for.link = data.frame(name = character(0), link = character(0), 
+                             stringsAsFactors = FALSE)
+    j = 1
+    
+    for(i in names(par.extend$link)){
+      if(!i %in% namelist.par.extend){
+        stop('invalid parameter in "par.extend$link"')
+      } else {
+        df.for.link[j, 'name'] = i
+        df.for.link[j, 'link'] = par.extend$link[[i]]
+        j = j + 1
+      }
     }
-    
-    tem.fit = gam(model.formula, data = all.covariates, fit = FALSE)
-    design.matrix = as.data.frame(tem.fit$X)
-    colnames(design.matrix) = paste0("D_", colnames(design.matrix))
-    
-    which.session <- rep(1:n.sessions, times = n.masks)
-    data.ihd = vector('list', n.sessions)
-    for (i in 1:n.sessions){
-      data.ihd[[i]] <- design.matrix[which.session == i, , drop = FALSE]
-    }
-    
-    info.types = c(info.types, "ihd")
     
   } else {
-    data.ihd = vector('list', n.sessions)
-    for (i in 1:n.sessions){
-      data.ihd[[i]] <- data.frame(tem = rep(1, n.masks[i]))
-      colnames(data.ihd[[i]])[1] = "D_(Intercept)"
+    for(i in namelist.par.extend){
+      data.full[[paste0(i, '_(Intercept)')]] = 1
     }
+    
+    df.for.link = data.frame(name = character(0), link = character(0), 
+                             stringsAsFactors = FALSE)
   }
   
-  return(data.ihd)
-  
+  return(list(data.full = data.full, link = df.for.link))
 }
+
 
 
 #############################################################################
-ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
-  cutoff <- ss.opts$cutoff
-  ss.link <- ss.opts$ss.link
-  directional <- ss.opts$directional
-  het.source <- ss.opts$het.source
-  het.source.method <- ss.opts$het.source.method
-  n.dir.quadpoints <- ss.opts$n.dir.quadpoints
-  n.het.source.quadpoints <- ss.opts$n.het.source.quadpoints
+ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix, df.link){
+  cutoff <- ss.opts[["cutoff"]]
+  ss.link <- ss.opts[["ss.link"]]
+  directional <- ss.opts[["directional"]]
+  het.source <- ss.opts[["het.source"]]
+  het.source.method <- ss.opts[["het.source.method"]]
+  n.dir.quadpoints <- ss.opts[["n.dir.quadpoints"]]
+  n.het.source.quadpoints <- ss.opts[["n.het.source.quadpoints"]]
   
+
+  fit.ss = "ss" %in% bucket_info
   
-  fit.ss = "ss" %in% info.types
-  
-  
+
   if(fit.ss){
     ## Warning for unexpected component names.
     if (!all(names(ss.opts) %in% c("cutoff", "het.source", "het.source.method", 
@@ -512,7 +590,7 @@ ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
     } else {
       if(!is.null(fix$b2.ss)){
         if(fix$b2.ss != 0) {
-          info.types = c(info.types, "ss.dir")
+          bucket_info = c(bucket_info, "ss.dir")
         } else {
           warning("'fix$b2.ss' is zero, 
                   all corresponding parameters of 'directional' are ignored")
@@ -521,7 +599,7 @@ ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
           n.dir.quadpoints = NULL
         }
       } else {
-        info.types = c(info.types, "ss.dir")
+        bucket_info = c(bucket_info, "ss.dir")
       }
     }
     
@@ -545,7 +623,7 @@ ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
         het.source <- TRUE
       }
     }
-    
+
     #make detailed and final judgment about ss.het, and settle some basic settings
     if (het.source){
       if (is.null(het.source.method)){
@@ -553,7 +631,7 @@ ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
       }
       if(!is.null(fix$sigma.b0.ss)){
         if(fix$sigma.b0.ss != 0) {
-          info.types = c(info.types, "ss.het")
+          bucket_info = c(bucket_info, "ss.het")
         } else {
           warning("'fix$sigma.b0.ss' is zero, 
                   all corresponding parameters of 'het.source' are ignored")
@@ -563,7 +641,7 @@ ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
           n.het.source.quadpoints = NULL
         }
       } else {
-        info.types = c(info.types, "ss.het")
+        bucket_info = c(bucket_info, "ss.het")
       }
     } else {
       ## Fixing sigma.b0.ss to 0 if a heterogeneous source
@@ -598,7 +676,7 @@ ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
     het.source.weights <- 0
     if(het.source){
       if(het.source.method == "GH"){
-        Hd <- gaussHermiteData(n.het.source.quadpoints)
+        GHd <- gaussHermiteData(n.het.source.quadpoints)
         het.source.nodes <- GHd$x
         het.source.weights <- GHd$w
       }
@@ -607,7 +685,7 @@ ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
     
     ##################################################################
     #simple check and simple argument adjustment
-    if(all(c("ss.dir", "ss.het") %in% info.types)){
+    if(all(c("ss.dir", "ss.het") %in% bucket_info)){
       stop("Fitting of models with both heterogeneity in source signal strength 
        and directional calling is not yet implemented.")
     }
@@ -620,7 +698,7 @@ ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
     }
     
     ## Error thrown for model with heterogeneity in source strength and a log-link function.
-    if ("ss.het" %in% info.types){
+    if ("ss.het" %in% bucket_info){
       if (ss.link != "identity"){
         stop("Fitting of signal strength models with heterogeneity in source 
          signal strength is only implemented with an identity link function.")
@@ -684,8 +762,9 @@ ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
     
     n.removed = sum(dims$n.IDs) - sum(new.n.IDs$x)
     if(n.removed > 0){
-      message(n.removed, " capture history entries have no received signal 
-            strengths above the cutoff and have therefore been removed.\n", sep = "")
+      message(n.removed, " capture history entries have no received signal", 
+              " strengths above the cutoff and have therefore been removed.\n", 
+              sep = "")
     }
     
     dims$n.IDs[new.n.IDs$session] = new.n.IDs$x
@@ -733,6 +812,6 @@ ss.fun = function(ss.opts, data.full, info.types, dims, sv, fix, df.link){
   }
   
   return(list(data.full = data.full, dims = dims, sv = sv, fix = fix,
-              ss.opts = ss.opts, link = df.link, info.types = info.types))
+              ss.opts = ss.opts, link = df.link, bucket_info = bucket_info))
 }
 
