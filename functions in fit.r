@@ -320,10 +320,10 @@ mask.fun = function(mask, dims, data.traps, data.full, bucket_info, local){
 
 
 
-par.extend.fun = function(par.extend = par.extend, data.full = data.full, dims = dims){
-  namelist.par.extend = c('D', 'g0', 'sigma', 'lambda0', 'z', 'shape.1', 
-                          'shape.2', 'shape', 'scale', 'b0.ss', 'b1.ss',
-                          'b2.ss', 'sigma.ss', 'kappa', 'alpha', 'sigma.toa')
+par.extend.fun = function(par.extend = par.extend, data.full = data.full, dims = dims,
+                          fulllist.par = fulllist.par){
+  namelist.par.extend = fulllist.par[-which(fulllist.par == 'sigma.b0.ss')]
+  fulllist.par.extend = fulllist.par
   
   n.sessions = dims$n.sessions
   n.IDs = dims$n.IDs
@@ -480,7 +480,7 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, dims =
       
       design.matrix = gam(foo[[i]], data = tem.data, fit = FALSE)$X
       design.matrix = as.data.frame(design.matrix, stringsAsFactors = FALSE)
-      colnames(design.matrix) = paste(name.extend.par[i], "_", colnames(design.matrix))
+      colnames(design.matrix) = paste(name.extend.par[i], "_", colnames(design.matrix), sep = " ")
       design.matrix[['session']] = tem.data[['session']]
       if(!is.null(tem.data[['trap']])) design.matrix[['trap']] = tem.data[['trap']]
       if(!is.null(tem.data[['animal_ID']])) design.matrix[['animal_ID']] = tem.data[['animal_ID']]
@@ -502,39 +502,65 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, dims =
                                                          'ID'[!is.null(data.par.extend[['ID']])],
                                                          'mask'[!is.null(data.par.extend[['mask']])]), all = TRUE)
     
-    for(i in namelist.par.extend){
+    
+    for(i in fulllist.par.extend){
       if(!i %in% name.extend.par){
         data.full[[paste0(i, ' _ (Intercept)')]] = 1
       }
     }
-    
-    
-    #finally, record the link, here we only check whether the name is in the full list of parameters,
-    #so technically, user could assign link function to any parameter here, but not recommended
-    df.for.link = data.frame(name = character(0), link = character(0), 
-                             stringsAsFactors = FALSE)
-    j = 1
-    
-    for(i in names(par.extend$link)){
-      if(!i %in% namelist.par.extend){
-        stop('invalid parameter in "par.extend$link"')
-      } else {
-        df.for.link[j, 'name'] = i
-        df.for.link[j, 'link'] = par.extend$link[[i]]
-        j = j + 1
-      }
-    }
-    
   } else {
-    for(i in namelist.par.extend){
-      data.full[[paste0(i, '_(Intercept)')]] = 1
+    for(i in fulllist.par.extend){
+      data.full[[paste0(i, ' _ (Intercept)')]] = 1
     }
-    
-    df.for.link = data.frame(name = character(0), link = character(0), 
-                             stringsAsFactors = FALSE)
   }
   
-  return(list(data.full = data.full, link = df.for.link))
+  
+  
+  #finally, record the link, here we only check whether the name is in the full list of parameters,
+  #so technically, user could assign link function to any parameter here, but not recommended
+  df.link = data.frame(name = character(0), link = character(0), 
+                           stringsAsFactors = FALSE)
+  
+  
+  link = par.extend$link
+  
+  if(!is.null(link)){
+    if(!all(names(link) %in% fulllist.par.extend)){
+      warning("one or more parameters denoted in 'link' are ignored as they are invalid.")
+    }
+  }
+  
+  
+  j = 1 
+  for(i in fulllist.par.extend){
+    df.link[j, 1] = i
+    if(i %in% names(link)){
+      df.link[j, 2] = link[[i]]
+    } else {
+      if(i == "D") df.link[j, 2] = 'log'
+      if(i == "g0") df.link[j, 2] = 'logit'
+      if(i == "sigma") df.link[j, 2] = 'log'
+      if(i == "lambda0") df.link[j, 2] = 'log'
+      if(i == "z") df.link[j, 2] = 'log'
+      if(i == "shape.1") df.link[j, 2] = 'log'
+      if(i == "shape.2") df.link[j, 2] = 'identity'
+      if(i == "shape") df.link[j, 2] = 'identity'
+      if(i == "scale") df.link[j, 2] = 'log'
+      if(i == "b0.ss") df.link[j, 2] = 'log'
+      if(i == "b1.ss") df.link[j, 2] = 'log'
+      if(i == "b2.ss") df.link[j, 2] = 'log'
+      if(i == "sigma.ss") df.link[j, 2] = 'log'
+      if(i == "kappa") df.link[j, 2] = 'log'
+      if(i == "alpha") df.link[j, 2] = 'log'
+      if(i == "sigma.toa") df.link[j, 2] = 'log'
+      if(i == "sigma.b0.ss") df.link[j, 2] = 'log'
+    }
+    j = j + 1
+  }
+  
+  
+  
+  return(list(data.full = data.full, link = df.link, name.extend.par = name.extend.par))
 }
 
 
@@ -554,6 +580,8 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix, df.link){
   
 
   if(fit.ss){
+    if(is.null(ss.opts)) stop("Argument 'ss.opts' is missing.")
+    if(is.null(cutoff)) stop("The 'cutoff' component of 'ss.opts' must be specified.")
     ## Warning for unexpected component names.
     if (!all(names(ss.opts) %in% c("cutoff", "het.source", "het.source.method", 
                                    "n.het.source.quadpoints", "directional", 
@@ -563,9 +591,6 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix, df.link){
             \"n.dir.quadpoints\", \"ss.link\"; 
             others are being ignored.")
     }
-    
-    if(is.null(ss.opts)) stop("Argument 'ss.opts' is missing.")
-    if(is.null(cutoff)) stop("The 'cutoff' component of 'ss.opts' must be specified.")
     
     ## Setting default values for het.source and directional, ss.link.
     
@@ -584,8 +609,6 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix, df.link){
         warning("As the 'directional' component of 'ss.opts' is FALSE, 
         the values of parameter b2.ss in 'sv' and 'fix' are being ignored")
       }
-      sv$b2.ss <- 0
-      fix$b2.ss <- 0
       n.dir.quadpoints = NULL
     } else {
       if(!is.null(fix$b2.ss)){
@@ -595,7 +618,6 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix, df.link){
           warning("'fix$b2.ss' is zero, 
                   all corresponding parameters of 'directional' are ignored")
           directional = FALSE
-          sv$b2.ss <- 0
           n.dir.quadpoints = NULL
         }
       } else {
@@ -636,7 +658,6 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix, df.link){
           warning("'fix$sigma.b0.ss' is zero, 
                   all corresponding parameters of 'het.source' are ignored")
           het.source = FALSE
-          sv$sigma.b0.ss = 0
           het.source.method = NULL
           n.het.source.quadpoints = NULL
         }
@@ -650,8 +671,6 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix, df.link){
         warning("As the 'het.source' component of 'ss.opts' is FALSE, 
         the values of the parameter sigma.b0.ss in 'sv' and 'fix' are being ignored")
       }
-      sv$sigma.b0.ss <- 0
-      fix$sigma.b0.ss <- 0
       het.source.method = NULL
       n.het.source.quadpoints = NULL
     }
@@ -705,10 +724,7 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix, df.link){
       }
     }
     
-    #record ss.link
-    tem = nrow(df.link)
-    df.link[tem + 1, 1] = "ss"
-    df.link[tem + 1, 2] = ss.link
+
     
     
     #data.full$ss = NA observations are generated by the previous par.extend()
@@ -774,7 +790,8 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix, df.link){
                    n.dir.quadpoints= n.dir.quadpoints,
                    n.het.source.quadpoints = n.het.source.quadpoints,
                    het.source.nodes = het.source.nodes,
-                   het.source.weights = het.source.weights)
+                   het.source.weights = het.source.weights,
+                   ss.link = ss.link)
     
     
   } else {
@@ -798,20 +815,9 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix, df.link){
       warning(paste0("Not 'ss' model, coresponding parameters specified in", 
                      "'sv' or 'fix' will be ignored"))
     }
-    sv$b0.ss = 0
-    sv$b1.ss = 0
-    sv$b2.ss = 0
-    sv$sigma.ss = 0
-    sv$sigma.b0.ss = 0
-    
-    fix$b0.ss = 0
-    fix$b1.ss = 0
-    fix$b2.ss = 0
-    fix$sigma.ss = 0
-    fix$sigma.b0.ss = 0
   }
   
-  return(list(data.full = data.full, dims = dims, sv = sv, fix = fix,
+  return(list(data.full = data.full, dims = dims,
               ss.opts = ss.opts, link = df.link, bucket_info = bucket_info))
 }
 
