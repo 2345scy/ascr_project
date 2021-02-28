@@ -364,3 +364,78 @@ sort.data = function(dat, name){
 }
 
 
+
+numeric_ID = function(dat){
+  is.animal_ID = "animal_ID" %in% colnames(dat)
+  if(is.animal_ID){
+    tem.dat.non.na = subset(dat, !is.na(ID))
+    tem.dat.non.na$animal_ID = as.numeric(as.factor(tem.dat.non.na$animal_ID))
+    
+    tem.dat.na = subset(dat, is.na(ID))
+    u.id = unique(tem.dat.non.na$animal_ID)
+    tem = vector('list', length(u.id))
+    for(k in 1:length(u.id)){
+      tem[[k]] = subset(tem.dat.non.na, animal_ID== u.id[k])
+      tem[[k]]$ID = as.numeric(as.factor(tem[[k]]$ID))
+    }
+  } else {
+    tem.dat.non.na = subset(dat, !is.na(ID))
+    tem.dat.na = subset(dat, is.na(ID))
+    u.session = unique(tem.dat.non.na$session)
+    tem = vector('list', length(u.session))
+    for(k in 1:length(u.session)){
+      tem[[k]] = subset(tem.dat.non.na, session == u.session[[k]])
+      tem[[k]]$ID = as.numeric(as.factor(tem[[k]]$ID))
+    }
+  }
+  tem.dat.non.na = do.call('rbind', tem)
+  dat = rbind(tem.dat.na, tem.dat.non.na)
+  return(dat)
+}
+
+numeric_link = function(link){
+  ans = numeric(length(link))
+  for(i in 1:length(link)){
+    if(link[i] == 'identity') ans[i] = 1
+    if(link[i] == 'log') ans[i] = 2
+    if(link[i] == 'logit') ans[i] = 3
+    if(link[i] == 'spherical') ans[i] = 4
+  }
+  return(ans)
+}
+
+numeric_detfn = function(detfn){
+  if(detfn == 'hn') return(1)
+  if(detfn == 'hhn') return(2)
+  if(detfn == 'hr') return(3)
+  if(detfn == 'th') return(4)
+  if(detfn == 'lth') return(5)
+  if(detfn == 'ss') return(6)
+  if(detfn == 'ss_dir') return(7)
+  if(detfn == 'ss_het') return(8)
+}
+
+numeric_het_method = function(het_method){
+  if(is.null(het_method)) {
+    return(1)
+  } else {
+    if(het_method == "GH") return(2)
+    if(het_method == "rect") return(3)
+  }
+}
+
+cal_n_det = function(data.full){
+  if("animal_ID" %in% colnames(data.full)){
+    tem = aggregate(data.full$bincapt, list(session = data.full$session,
+                                            animal_ID = data.full$animal_ID,
+                                            ID = data.full$ID), sum)
+    tem = tem[order(tem$session, tem$animal_ID, tem$ID),]
+    return(tem$x)
+  } else {
+    tem = aggregate(data.full$bincapt, list(session = data.full$session,
+                                            ID = data.full$ID), sum)
+    tem = tem[order(tem$session, tem$ID),]
+    return(tem$x)
+  }
+  
+}

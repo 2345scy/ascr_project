@@ -123,6 +123,7 @@ mask.fun = function(mask, dims, data.traps, data.full, bucket_info, local,
   n.sessions = dims$n.sessions
   n.traps = dims$n.traps
   n.IDs = dims$n.IDs
+  is.animal_ID = "animal_ID" %in% colnames(data.full)
   
   if(any(class(mask) == "list" & length(mask) == 1, is.data.frame(mask), is.matrix(mask))){
     tem.mask = vector('list', n.sessions)
@@ -340,17 +341,6 @@ mask.fun = function(mask, dims, data.traps, data.full, bucket_info, local,
     data.ID_mask = sort.data(data.ID_mask, "data.ID_mask")
   }
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
   return(list(mask = mask, dists = dists, thetas = thetas, n.masks = n.masks, A = A, 
               buffer = buffer, all.which.local = all.which.local, all.n.local= all.n.local,
               data.full = data.full, data.dists.thetas = data.dists.thetas,
@@ -385,9 +375,17 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
     }
     
     #check 'data' component first
+    
+    #temporarily not allow "ID" level extension
+    #and "animal_ID" level extension will make it too complicated
+    #maybe add it in the future
+    
     input_data = par.extend$data
-    if(!all(names(input_data) %in% c('session', 'trap', 'ID', 'mask'))){
-      stop("only 'session', 'trap', 'ID' or 'mask' level data could be used as input.")
+    if(!all(names(input_data) %in% c('session', 'trap', 
+                                     #'ID', 
+                                     'mask'))){
+      #stop("only 'session', 'trap', 'ID' or 'mask' level data could be used as input.")
+      stop("only 'session', 'trap', or 'mask' level data could be used as input.")
     }
     
     data.par.non.mask = data.frame(session = 1:n.sessions)
@@ -611,6 +609,7 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
       data.full[[paste0(i, ' _ (Intercept)')]] = 1
       param_distribution[[i]] = c(1, 0)
     }
+    name.extend.par = NULL
   }
   
   #finally, record the link, here we only check whether the name is in the full list of parameters,
@@ -667,7 +666,7 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
 
 #############################################################################
 
-ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix){
+ss.fun = function(ss.opts, data.full, data.ID_mask, bucket_info, dims, sv, fix){
   cutoff <- ss.opts[["cutoff"]]
   ss.link <- ss.opts[["ss.link"]]
   directional <- ss.opts[["directional"]]
@@ -752,6 +751,9 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix){
     if (het.source){
       if (is.null(het.source.method)){
         het.source.method <- "GH"
+      } else {
+        if(het.source.method %in% c("GH", "rect")) stop(paste0("Only 'GH' and 'rect' are ",
+                                                               "supported as het.source.method."))
       }
       if(!is.null(fix$sigma.b0.ss)){
         if(fix$sigma.b0.ss != 0) {
@@ -778,8 +780,8 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix){
     }
     
     #after settling down basic settings, assign default value to n.het...
-    if (het.source){
-      if (is.null(n.het.source.quadpoints)){
+    if(het.source){
+      if(is.null(n.het.source.quadpoints)){
         n.het.source.quadpoints <- 15
       }
     } else {
@@ -856,6 +858,7 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix){
     }
     
     keep = subset(keep, x > 0)
+    if(nrow(keep) == 0) stop("None of signal received is greater than the cut off threshold.")
     colnames(keep)[3] = "keep"
     data.ss = merge(data.ss, keep, by = c("session", "animal_ID"[is.animal_ID], "ID"), all = TRUE)
     data.ss = subset(data.ss, !is.na(data.ss$keep))
@@ -884,13 +887,26 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix){
       message(n.removed, " capture history entries have no received signal", 
               " strengths above the cutoff and have therefore been removed.\n", 
               sep = "")
-    }
+      #a logical value to record whether there is any ID been removed
+      ID.removed = TRUE
+    } else ID.removed = FALSE
     
     dims$n.IDs[new.n.IDs$session] = new.n.IDs$x
     
+    if(ID.removed){
+      #when any ID is deleted due to the cut off of ss
+      if("animal_ID" %in% colnames(data.full)){
+        data.ID_mask = subset(data.ID_mask, paste(session, animal_ID, ID, sep = "-") %in%
+                                unique(paste(data.full$session, data.full$animal_ID,data.full$ID, sep = "-")))
+      } else {
+        data.ID_mask = subset(data.ID_mask, paste(session, ID, sep = "-") %in%
+                                unique(paste(data.full$session, data.full$ID, sep = "-")))
+      }
+    }
+    
     #modified ss.opts, contains much condensed and regular information
     ss.opts = list(het.source.method = het.source.method,
-                   n.dir.quadpoints= n.dir.quadpoints,
+                   n.dir.quadpoints = n.dir.quadpoints,
                    n.het.source.quadpoints = n.het.source.quadpoints,
                    het.source.nodes = het.source.nodes,
                    het.source.weights = het.source.weights,
@@ -924,7 +940,7 @@ ss.fun = function(ss.opts, data.full, bucket_info, dims, sv, fix){
   data.full = sort.data(data.full, "data.full")
 
   
-  return(list(data.full = data.full, dims = dims,
+  return(list(data.full = data.full, dims = dims, data.ID_mask = data.ID_mask,
               ss.opts = ss.opts, bucket_info = bucket_info))
 }
 
@@ -966,14 +982,29 @@ param.detfn.fun = function(sv = sv, fix = fix, bounds = bounds, name.extend.par 
                            survey.length = survey.length, dims = dims){
   #check bounds, sv, fix
   if(!is.null(bounds)){
-    if(!all(class(sv) == 'list', class(fix) == 'list', class(bounds) == 'list')){
-      stop("'sv', 'fix' and 'bounds' must be list.")
-    }
-    if(!all(names(sv) %in% fulllist.par)) stop('one or more element in "sv" is not valid.')
+    if(class(bounds) != 'list') stop ('"bounds" must be a list.')
     if(!all(names(bounds) %in% fulllist.par)) stop('one or more element in "bounds" is not valid.')
-    if(!all(names(fix) %in% fulllist.par)) stop('one or more element in "fix" is not valid.')
-    if(!all(sapply(bounds) == 2)) stop('each element of "bounds" should be a vector with two values.')
+    if(!all(sapply(bounds, function(x) nrow(as.matrix(x))) == 2)){
+      stop('each element of "bounds" should be a vector with two values, or a matrix with two rows.')
+    } 
+  } else {
+    bounds = vector('list', 0)
   }
+  
+  if(!is.null(sv)){
+    if(class(sv) != 'list') stop('"sv" must be a list.')
+    if(!all(names(sv) %in% fulllist.par)) stop('one or more element in "sv" is not valid.')
+  } else {
+    sv = vector('list', 0)
+  }
+  
+  if(!is.null(fix)){
+    if(class(fix) != 'list') stop('"fix" must be a list.')
+    if(!all(names(fix) %in% fulllist.par)) stop('one or more element in "fix" is not valid.')
+  } else {
+    fix = vector('list', 0)
+  }
+  
   
   
   #detfn is the basis of choosing parameters, settle this first
@@ -1098,13 +1129,13 @@ param.detfn.fun = function(sv = sv, fix = fix, bounds = bounds, name.extend.par 
       #deal with "fix" first
       if(i %in% name.extend.par){
         #a valid extended parameter should not be fixed
-        if(i %in% names(fix)){
+        if(!is.null(fix[[i]])){
           warning(paste0("parameter ", i, " is going to be extended, therefore, it cannot be fixed."))
           fix[[i]] = NULL
         }
       } else {
         #if this valid parameter is not expended, check whether its fixed value is in the range
-        if(i %in% names(fix)){
+        if(!is.null(fix[[i]])){
           tem = param.range.validate(i, fix[[i]])
           if(!tem) stop(paste0("fixed value for parameter ", i, " is out of valid range."))
         }
@@ -1112,14 +1143,14 @@ param.detfn.fun = function(sv = sv, fix = fix, bounds = bounds, name.extend.par 
       #then deal with "sv" and "bounds"
       #if a parameter is extended, the start value will be its intercept beta's start value
       #the bounds of an extended parameter will be assigned to its intercept as well
-      if(i %in% names(bounds)){
+      if(!is.null(bounds[[i]])){
         #the lower and upper bounds all should be in the valid range of this parameter
         tem1 = param.range.validate(i, ifelse(bounds[[i]][1] == 0, 1e-15, bounds[[i]][1]))
         tem2 = param.range.validate(i, ifelse(bounds[[i]][2] == 0, 1e-15, bounds[[i]][2]))
         if(!all(tem1, tem2)) stop(paste0("bounds for parameter ", i, " is out of valid range."))
         if(bounds[[i]][2] <= bounds[[i]][1]) stop(paste0("invalid range for parameter ", i))
         
-        if(i %in% names(sv)){
+        if(!is.null(sv[[i]])){
           tem = param.range.validate(i, sv[[i]])
           if(!tem) stop(paste0("start value for parameter ", i, " is out of valid range."))
           
@@ -1141,10 +1172,19 @@ param.detfn.fun = function(sv = sv, fix = fix, bounds = bounds, name.extend.par 
           }
         }
         
+        #whether the fixed value is inside the assigned bound
+        #since we have check the validation of fixed value, no need to check it here like sv
+        #if bound is NULL, no need to check fixed value against the defaulted assigned bound
+        if(!is.null(fix[[i]])){
+          if(!all(sv[[i]] >= bounds[[i]][1], sv[[i]] <= bounds[[i]][2])){
+            stop(paste0("the start value of ", i, " is out of the specified corresponding bounds."))
+          }
+        }
+        
       } else {
         bounds[[i]] = default.bounds(i)
         
-        if(i %in% names(sv)){
+        if(!is.null(sv[[i]])){
           tem = param.range.validate(i, sv[[i]])
           if(!tem) stop(paste0("start value for parameter ", i, " is out of valid range."))
           #I'm not sure if the assigned start value be out of the default bound, what we should do
@@ -1158,6 +1198,7 @@ param.detfn.fun = function(sv = sv, fix = fix, bounds = bounds, name.extend.par 
           
         } else {
           #if sv is not assigned, assign a default value
+
           sv[[i]] = default.sv(i, info = list(data.full = data.full, data.mask = data.mask,
                                               buffer = buffer, A = A, ss.opts = ss.opts, 
                                               detfn = detfn, dims = dims, 
@@ -1167,23 +1208,23 @@ param.detfn.fun = function(sv = sv, fix = fix, bounds = bounds, name.extend.par 
       }
     } else {
       #a start value is needed for every parameter regardless it is used or not
-      if(i %in% names(sv)){
+      if(!is.null(sv[[i]])){
         warning(paste0("parameter ", i, " assigned in argument 'sv' will be ignored because ",
-                       "the detect is incompatible"))
+                       "the detect function is incompatible"))
       }
       sv[[i]] = 0.5
       
       #if this parameter is not used in the model and in the "fix", remove it from "fix"
       #by assigning NULL to it
-      if(i %in% names(fix)){
+      if(!is.null(fix[[i]])){
         warning(paste0("parameter ", i, " assigned in argument 'fix' will be ignored because ",
-                       "the detect is incompatible"))
+                       "the detect function is incompatible"))
         fix[[i]] = NULL
       }
       
-      if(i %in% names(bounds)){
+      if(!is.null(bounds[[i]])){
         warning(paste0("parameter ", i, " assigned in argument 'bounds' will be ignored because ",
-                       "the detect is incompatible"))
+                       "the detect function is incompatible"))
       }
       
       bounds[[i]] = c(0.3, 0.7)
@@ -1232,11 +1273,19 @@ param.detfn.fun = function(sv = sv, fix = fix, bounds = bounds, name.extend.par 
     #and its link function is 'log', than, the real input of fixed value in TMB will be log(1e-20)
     #it is not exactly zero. But this problem could be solved by rounding the output to 7 digits,
     #so in the output, this parameter will be zero again.
-    if(!is.null(fix[[i]])) fix.input[[i]] = link.fun(link = link, value = fix[[i]])
-    sv.input[[i]] = numeric(length_param)
-    #since the numeric(n) is defaults set to 0, we only need to assign the
-    #first element, no matter it is extended or not
-    sv.input[[i]][1] = link.fun(link = link, value = sv[[i]])
+    if(!is.null(fix[[i]])) {
+      fix.input[[i]] = link.fun(link = link, value = fix[[i]])
+      #if a parameter is fixed, we set its start value to its fixed value
+      #since only not extended parameter could be fixed, so we don't need to
+      #worry about its length, it is always a scaler
+      sv.input[[i]] = fix.input[[i]]
+    } else {
+      sv.input[[i]] = numeric(length_param)
+      #since the numeric(n) is defaults set to 0, we only need to assign the
+      #first element, no matter it is extended or not
+      sv.input[[i]][1] = link.fun(link = link, value = sv[[i]])
+    }
+
     
     
     #set the default bounds of extended betas as the starter of our bounds matrix
@@ -1266,50 +1315,3 @@ param.detfn.fun = function(sv = sv, fix = fix, bounds = bounds, name.extend.par 
 }
 
 
-numeric_ID = function(dat){
-  is.animal_ID = "animal_ID" %in% colnames(dat)
-  if(is.animal_ID){
-    dat$animal_ID = as.numeric(as.factor(datl$animal_ID))
-    data.ID_mask$animal_ID = as.numeric(as.factor(data.ID_mask$animal_ID))
-    tem.dat.non.na = subset(dat, !is.na(ID))
-    tem.dat.na = subset(dat, is.na(ID))
-    u.id = unique(paste(tem.dat.non.na$session,
-                        tem.dat.non.na$animal_ID, sep = "_"))
-    tem = vector('list', length(u.id))
-    for(k in 1:length(u.id)){
-      tem[[k]] = subset(tem.dat.non.na, 
-                        paste(session, animal_ID, sep = "_") == u.id[k])
-      tem[[k]]$ID = as.numeric(as.factor(tem[[k]]$ID))
-    }
-    
-    tem.dat.non.na = do.call('rbind', tem)
-    dat = rbind(tem.dat.na, tem.dat.non.na)
-    
-  } else {
-    dat$ID = as.numeric(as.factor(dat$ID))
-  }
-  
-  return(dat)
-}
-
-numeric_link = function(link){
-  ans = numeric(length(link))
-  for(i in 1:length(link)){
-    if(link[i] == 'identity') ans[i] = 1
-    if(link[i] == 'log') ans[i] = 2
-    if(link[i] == 'logit') ans[i] = 3
-    if(link[i] == 'spherical') ans[i] = 4
-  }
-  return(ans)
-}
-
-numeric_detfn = function(detfn){
-  if(detfn == 'hn') return(1)
-  if(detfn == 'hhn') return(2)
-  if(detfn == 'hr') return(3)
-  if(detfn == 'th') return(4)
-  if(detfn == 'lth') return(5)
-  if(detfn == 'ss') return(6)
-  if(detfn == 'ss_dir') return(7)
-  if(detfn == 'ss_het') return(8)
-}

@@ -54,6 +54,9 @@ create.capt <- function(captures, traps = NULL, n.traps = NULL, n.sessions = NUL
   }
 
   
+  if(!all(captures$session %in% seq(n.sessions))){
+    stop('"session" must be assigned as successive positive integers begins from one.')
+  }
   
   
   #-----------------------------------------------------------------------------------------------
