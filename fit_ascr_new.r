@@ -215,7 +215,8 @@ for(i in 1:length(fulllist.par)){
   name.cpp = fulllist.par.4cpp[i]
   data[[paste0(name.cpp, "_DX")]] = ifelse(is.na(DX.full[[name.r]]), 0, DX.full[[name.r]])
   #column in the design matrix for intercept should be always 1
-  data[[paste0(name.cpp, "_DX")]][,1] = ifelse(data[[paste0(name.cpp, "_DX")]][,1] == 0, 1, data[[paste0(name.cpp, "_DX")]][,1])
+  data[[paste0(name.cpp, "_DX")]][,1] = ifelse(data[[paste0(name.cpp, "_DX")]][,1] == 0, 1, 
+                                               data[[paste0(name.cpp, "_DX")]][,1])
   data[[paste0(name.cpp, "_DX_mask")]] = ifelse(is.na(DX.mask[[name.r]]), 0, DX.mask[[name.r]])
   data[[paste0(name.cpp, "_bound")]] = bounds.input[[name.r]]
   parameters[[name.cpp]] = sv.input[[name.r]]

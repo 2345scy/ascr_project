@@ -448,7 +448,8 @@ Type objective_function<Type>::operator() ()
       if(n_i != 0){
         for(int i = 1; i <= n_i; i++){
           //Z_i is the number of detections for ID i
-          int Z_i = lookup_n_detection(is_animalID, s, 0, i, 0, n_IDs, 0);
+          int index_zi = lookup_n_detection(is_animalID, s, 0, i, 0, n_IDs, 0);
+          Type Z_i = n_detection(index_zi);
           Type ll_i = Type(0.0);
           for(int m = 1; m <= n_m; m++){
             int index_data_mask = lookup_data_mask(s, m, n_masks);
@@ -478,7 +479,11 @@ Type objective_function<Type>::operator() ()
             }
             //cancelled out p_dot from original likelihood: fw /= p_dot(m - 1);
 
+            
             //for fy=f(y_i|w_i,x,n;theta)
+            Type fy_toa = Type(1.0);
+            Type fy_bear = Type(1.0);
+            Type fy_dist = Type(1.0);
             
             
             

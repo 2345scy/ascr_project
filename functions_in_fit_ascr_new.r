@@ -507,6 +507,9 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
       if(!all(foo_var %in% var.ex)) stop(paste0('one or more specifed explaintory varrable in "model"',
                                                 ' is not provided in "data".'))
       
+      #sigma_toa is not trap extendable
+      if(i == 'sigma_toa' & any(foo_var %in% var.t)) stop("'sigma_toa' is not extendable in 'trap' level.")
+      
       tem = formula_separate(foo, var.m)
       
       #"full" here does not mean full information, it does not contain mask information
