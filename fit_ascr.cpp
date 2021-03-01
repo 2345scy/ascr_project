@@ -404,7 +404,8 @@ Type objective_function<Type>::operator() ()
       for(int m = 1; m <= n_m; m++){
         int index_data_mask = lookup_data_mask(s, m, n_masks);
         //"D" is special, not related to trap nor ID, so we set id = 1 and t = 1
-        int index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1, 0, n_IDs_for_datafull, n_traps, 0);
+        int index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1, 0, 
+                                                 n_IDs_for_datafull, n_traps, 0);
         Type D_tem_full = D_vec_full[index_data_full_D];
         Type D_tem_mask = D_vec_mask[index_data_mask];
         Type D_tem = D_tem_full + D_tem_mask;
@@ -452,8 +453,11 @@ Type objective_function<Type>::operator() ()
           Type Z_i = n_detection(index_zi);
           Type ll_i = Type(0.0);
           for(int m = 1; m <= n_m; m++){
+            int index_data_IDmask = lookup_data_IDmask(is_animalID, s, 0, i, m,
+                                                       0, n_IDs, 0, n_masks);
             int index_data_mask = lookup_data_mask(s, m, n_masks);
             //"D" is special, not related to trap nor ID, so we set id = 1 and t = 1
+            //"sigma_toa" is not trap extendable, so take this index as well
             int index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1,
                                                      0, n_IDs_for_datafull, n_traps, 0);
             Type D_tem = D_vec_full(index_data_full_D) + D_vec_mask(index_data_mask);
@@ -485,7 +489,25 @@ Type objective_function<Type>::operator() ()
             Type fy_bear = Type(1.0);
             Type fy_dist = Type(1.0);
             
+            //toa
+            Type sigma_toa_tem = sigma_toa_vec_full(index_data_full_D) + 
+              sigma_toa_vec_mask(index_data_mask);
+            sigma_toa_tem = trans(sigma_toa_tem, par_link(14));
+            Type toa_ssq_tem = toa_ssq(index_data_IDmask);
+            fy_toa *= pow(sigma_toa_tem, (1 - Z_i) * 0.5) * 
+              exp((-0.5) * toa_ssq_tem / sigma_toa_tem);
+            fy_toa = pow(fy_toa, is_toa);
             
+            //bearing
+            for(int t = 1; t <= n_t; t++){
+              int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
+                                                     0, n_IDs_for_datafull, n_traps, 0);
+              int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
+              Type kappa_tem = kappa_vec_full(index_data_full) +
+                kappa_vec_mask(index_data_mask);
+              kappa_tem = trans(kappa_tem, par_link(12));
+              Type h_k_x = atan()
+            }
             
             
             
