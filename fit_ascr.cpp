@@ -297,7 +297,8 @@ Type objective_function<Type>::operator() ()
     D_vec_mask = D_DX_mask * D_mask;
   }
   
-
+  //always add kappa, if the model is not bearing model
+  //then just pow(fy_bear, is_bearing) to cancel it
   PARAMETER_VECTOR(kappa);
   vector<Type> kappa_full = kappa.head(par_n_col(12, 0));
   vector<Type> kappa_mask = kappa.tail(par_n_col(12, 1));
@@ -313,7 +314,7 @@ Type objective_function<Type>::operator() ()
   int check = incheck_scalar(int tem = 13, param_og);
   if(check == 1) ADREPORT(kappa);
   
-  
+  //the same as kappa
   PARAMETER_VECTOR(alpha);
   vector<Type> alpha_full = alpha.head(par_n_col(13, 0));
   vector<Type> alpha_mask = alpha.tail(par_n_col(13, 1));
@@ -329,7 +330,7 @@ Type objective_function<Type>::operator() ()
   int check = incheck_scalar(int tem = 14, param_og);
   if(check == 1) ADREPORT(alpha);
   
-  
+  //the same as kappa
   PARAMETER_VECTOR(sigma_toa);
   vector<Type> sigma_toa_full = sigma_toa.head(par_n_col(14, 0));
   vector<Type> sigma_toa_mask = sigma_toa.tail(par_n_col(14, 1));
@@ -345,6 +346,7 @@ Type objective_function<Type>::operator() ()
   int check = incheck_scalar(int tem = 15, param_og);
   if(check == 1) ADREPORT(sigma_toa);
   
+  //begin the calculation of nll
   Type nll = Type(0.0);
   
   //model with detfn == 'hn'
@@ -451,13 +453,13 @@ Type objective_function<Type>::operator() ()
           //Z_i is the number of detections for ID i
           int index_zi = lookup_n_detection(is_animalID, s, 0, i, 0, n_IDs, 0);
           Type Z_i = n_detection(index_zi);
-          Type ll_i = Type(0.0);
+          Type l_i = Type(0.0);
           for(int m = 1; m <= n_m; m++){
             int index_data_IDmask = lookup_data_IDmask(is_animalID, s, 0, i, m,
                                                        0, n_IDs, 0, n_masks);
             int index_data_mask = lookup_data_mask(s, m, n_masks);
             //"D" is special, not related to trap nor ID, so we set id = 1 and t = 1
-            //"sigma_toa" is not trap extendable, so take this index as well
+            //"sigma_toa" is not trap extendable nor ID either, so take this index as well
             int index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1,
                                                      0, n_IDs_for_datafull, n_traps, 0);
             Type D_tem = D_vec_full(index_data_full_D) + D_vec_mask(index_data_mask);
@@ -466,7 +468,7 @@ Type objective_function<Type>::operator() ()
             //should be 1 instead of 0
             Type fx = Type(1.0);
             Type fw = Type(1.0);
-            Type fy = Type(1.0);
+            
             
             
             //for fx=f(x|n;theta)
@@ -483,8 +485,10 @@ Type objective_function<Type>::operator() ()
             }
             //cancelled out p_dot from original likelihood: fw /= p_dot(m - 1);
 
-            
+            //the section below for 'fy' will be the same for all kinds of detfn excluding ss
+            //make this part a function later
             //for fy=f(y_i|w_i,x,n;theta)
+            Type fy = Type(1.0);
             Type fy_toa = Type(1.0);
             Type fy_bear = Type(1.0);
             Type fy_dist = Type(1.0);
@@ -496,6 +500,7 @@ Type objective_function<Type>::operator() ()
             Type toa_ssq_tem = toa_ssq(index_data_IDmask);
             fy_toa *= pow(sigma_toa_tem, (1 - Z_i) * 0.5) * 
               exp((-0.5) * toa_ssq_tem / sigma_toa_tem);
+
             fy_toa = pow(fy_toa, is_toa);
             
             //bearing
@@ -503,20 +508,38 @@ Type objective_function<Type>::operator() ()
               int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
                                                      0, n_IDs_for_datafull, n_traps, 0);
               int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
-              Type kappa_tem = kappa_vec_full(index_data_full) +
-                kappa_vec_mask(index_data_mask);
+              Type kappa_tem = kappa_vec_full(index_data_full) + kappa_vec_mask(index_data_mask);
               kappa_tem = trans(kappa_tem, par_link(12));
-              Type h_k_x = atan()
+              fy_bear *= exp(kappa_tem * cos(capt_bearing(index_data_full) - 
+                          theta(index_data_dist_theta))) / besselI(kappa_tem, Type(0));
             }
             
+            fy_bear = pow(fy_bear, is_bearing);
+
+            //dist
+            for(int t = 1; t <= n_t; t++){
+              int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
+                                                     0, n_IDs_for_datafull, n_traps, 0);
+              int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
+              Type alpha_tem = alpha_vec_full(index_data_full) + alpha_vec_mask(index_data_mask);
+              alpha_tem = trans(alpha_tem, par_link(13));
+              fy_dist *= 1 / pow(dx(index_data_dist_theta) / alpha_tem, alpha_tem) * exp(lgamma(alpha_tem))) *
+                        pow(capt_dist(index_data_full), (alpha_tem - 1)) * 
+                        exp(-1 * alpha_tem * capt_dist(index_data_full) / dx(index_data_dist_theta));
+            }
             
+            fy_dist = pow(fy_dist, is_dist);
             
+            fy *= fy_toa * fy_bear * fy_dist;
+            //end of the section for 'fy'
+
+
             //we sum up likelihood (not log-likelihood) of each mask 
-            ll_i += fw * fx * fy;;
+            l_i += fw * fx * fy;;
             //end for mask m
           }
           
-          nll -= log(ll_i);
+          nll -= log(l_i);
           std::cout << "nll until ID " << i << " : " << nll << std::endl;
           //end for ID i
         }
