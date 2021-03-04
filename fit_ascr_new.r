@@ -10,8 +10,8 @@ source('support_functions.r')
 source('test_data_preparation.r')
 
 
-test_data("simple fitting -- half normal")
-
+#test_data("simple fitting -- half normal")
+test_data("joint bearing/dist fitting")
 
 
 capt_input = create.capt(captures, traps = traps)
@@ -170,9 +170,7 @@ data <- list(n_sessions = dims$n.sessions,
              #remeber in TMB, index begins from 0, so all of the index above should minus 1
              
              
-             #param_og = (1:nrow(data.par))[which(data.par[['par']] %in% param.og)],
-             #temporarily for test purpose~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             param_og = c(1, 2, 17),
+             param_og = (1:nrow(data.par))[which(data.par[['par']] %in% param.og)],
              
              par_n_col = as.matrix(data.par[, c('n_col_full', 'n_col_mask')]),
              #link index: 1 - identity, 2 - log, 3 - logit
@@ -234,7 +232,7 @@ if(length(name.fixed.par) == 0){
 } else {
   map = vector('list', length(name.fixed.par))
   names(map) = name.fixed.par
-  for(i in name.fixed.par) map[[i]] = NA
+  for(i in name.fixed.par) map[[i]] = factor(NA)
 }
 
 
@@ -243,8 +241,8 @@ if(length(name.fixed.par) == 0){
 compile("fit_ascr.cpp")
 dyn.load(dynlib("fit_ascr"))
 
-obj <- MakeADFun(data = data, parameters = parameters, DLL="fit_ascr")
-obj$hessian <- TRUE
+obj <- MakeADFun(data = data, parameters = parameters, map = map, DLL="fit_ascr")
+obj$hessian <- FALSE
 opt = nlminb(obj$par, obj$fn, obj$gr)
 o = sdreport(obj)
 summary(o, "report")
