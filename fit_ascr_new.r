@@ -10,8 +10,8 @@ source('support_functions.r')
 source('test_data_preparation.r')
 
 
-#test_data("simple fitting -- half normal")
-test_data("joint bearing/dist fitting")
+test_data("simple fitting -- half normal")
+#test_data("joint bearing/dist fitting")
 
 
 capt_input = create.capt(captures, traps = traps)
@@ -235,14 +235,16 @@ if(length(name.fixed.par) == 0){
   for(i in name.fixed.par) map[[i]] = factor(NA)
 }
 
-
+map[["kappa"]] = factor(NA)
+map[["alpha"]] = factor(NA)
+map[["sigma_toa"]] = factor(NA)
 
 
 compile("fit_ascr.cpp")
 dyn.load(dynlib("fit_ascr"))
 
 obj <- MakeADFun(data = data, parameters = parameters, map = map, DLL="fit_ascr")
-obj$hessian <- FALSE
+obj$hessian <- TRUE
 opt = nlminb(obj$par, obj$fn, obj$gr)
 o = sdreport(obj)
 summary(o, "report")

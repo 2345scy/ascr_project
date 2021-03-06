@@ -297,6 +297,7 @@ Type objective_function<Type>::operator() ()
     D_vec_mask = D_DX_mask * D_mask;
   }
   
+
   //always add kappa, if the model is not bearing model
   //then just pow(fy_bear, is_bearing) to cancel it
   PARAMETER_VECTOR(kappa);
@@ -311,7 +312,7 @@ Type objective_function<Type>::operator() ()
     kappa_vec_mask = kappa_DX_mask * kappa_mask;
   }
   
-
+  
   if(incheck_scalar(13, param_og) == 1) ADREPORT(kappa);
   
   //the same as kappa
@@ -327,7 +328,7 @@ Type objective_function<Type>::operator() ()
     alpha_vec_mask = alpha_DX_mask * alpha_mask;
   }
   
-
+  
   if(incheck_scalar(14, param_og) == 1) ADREPORT(alpha);
   
   //the same as kappa
@@ -336,15 +337,18 @@ Type objective_function<Type>::operator() ()
   vector<Type> sigma_toa_mask = sigma_toa.tail(par_n_col(14, 1));
   vector<Type> sigma_toa_vec_full = sigma_toa_DX * sigma_toa_full;
   vector<Type> sigma_toa_vec_mask(nrow_data_mask);
-
+  
   if(par_n_col(14, 1) == 0){
     sigma_toa_vec_mask.setZero();
   } else {
     sigma_toa_vec_mask = sigma_toa_DX_mask * sigma_toa_mask;
   }
-
-
+  
+  
   if(incheck_scalar(15, param_og) == 1) ADREPORT(sigma_toa);
+  
+
+  
   
   //begin the calculation of nll
   Type nll = Type(0.0);
@@ -500,7 +504,7 @@ Type objective_function<Type>::operator() ()
             Type toa_ssq_tem = toa_ssq(index_data_IDmask);
             fy_toa *= pow(sigma_toa_tem, (1 - Z_i) * 0.5) * 
               exp((-0.5) * toa_ssq_tem / sigma_toa_tem);
-
+            
             fy_toa = pow(fy_toa, is_toa);
             std::cout << "fy_toa: " << fy_toa << std::endl;
             //bearing
@@ -511,12 +515,12 @@ Type objective_function<Type>::operator() ()
               Type kappa_tem = kappa_vec_full(index_data_full) + kappa_vec_mask(index_data_mask);
               kappa_tem = trans(kappa_tem, par_link(12));
               fy_bear *= exp(kappa_tem * cos(capt_bearing(index_data_full) - 
-                          theta(index_data_dist_theta))) / besselI(kappa_tem, Type(0));
-			  fy_bear = pow(fy_bear, capt_bin(index_data_full));
+                theta(index_data_dist_theta))) / besselI(kappa_tem, Type(0));
+              fy_bear = pow(fy_bear, capt_bin(index_data_full));
             }
             
             fy_bear = pow(fy_bear, is_bearing);
-			std::cout << "fy_bear: " << fy_bear << std::endl;
+            std::cout << "fy_bear: " << fy_bear << std::endl;
             //dist
             for(int t = 1; t <= n_t; t++){
               int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
@@ -525,9 +529,9 @@ Type objective_function<Type>::operator() ()
               Type alpha_tem = alpha_vec_full(index_data_full) + alpha_vec_mask(index_data_mask);
               alpha_tem = trans(alpha_tem, par_link(13));
               fy_dist *=  pow(pow(dx(index_data_dist_theta) / alpha_tem, alpha_tem) * exp(lgamma(alpha_tem)), (-1)) *
-                        pow(capt_dist(index_data_full), (alpha_tem - 1)) * 
-                        exp(-1 * alpha_tem * capt_dist(index_data_full) / dx(index_data_dist_theta));
-			  fy_dist = pow(fy_dist, capt_bin(index_data_full));
+                pow(capt_dist(index_data_full), (alpha_tem - 1)) * 
+                exp(-1 * alpha_tem * capt_dist(index_data_full) / dx(index_data_dist_theta));
+              fy_dist = pow(fy_dist, capt_bin(index_data_full));
             }
             
             fy_dist = pow(fy_dist, is_dist);
