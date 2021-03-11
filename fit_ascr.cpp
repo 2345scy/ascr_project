@@ -140,16 +140,6 @@ int lookup_n_detection(int is_ani, int s, int a, int i, vector<int> n_a,
   return ans;
 }
 
-
-template<class Type>
-Type det_hn(Type dx, vector<Type> param){
-  Type ans = 0.0;
-  Type g0 = param(0);
-  Type sigma = param(1);
-  ans = g0 * exp(-1 * pow(dx, 2) / (2 * pow(sigma, 2)));
-  return ans;
-}
-
 template<class Type>
 Type trans(Type x, int link){
   Type ans = 0.0;
@@ -165,6 +155,45 @@ Type trans(Type x, int link){
   
   return ans;
   
+}
+
+//detect functions
+
+//hn
+template<class Type>
+Type det_hn(Type dx, vector<Type> param){
+  Type ans = 0.0;
+  Type g0 = param(0);
+  Type sigma = param(1);
+  ans = g0 * exp(-1 * pow(dx, 2) / (2 * pow(sigma, 2)));
+  return ans;
+}
+
+Type det_hnn(Type dx, vector<Type> param){
+	Type ans = 0.0;
+	Type lambda0 = param(0);
+	Type sigma = param(1);
+	Type lambda_d = lambda0 * exp(pow(dx, 2) * (-0.5) / pow(sigma, 2));
+	ans = 1 - exp((-1) * lambda_d);
+	return ans;
+}
+
+Type det_hr(Type dx, vecotr<Type> param){
+	Type ans = 0.0;
+	Type g0 = param(0);
+  	Type sigma = param(1);
+	Type z = param(2);
+	ans = g0 * (1 - exp((-1) * pow(dx / sigma, (-z))));
+	return ans;
+}
+
+Type det_lth(Type dx, vector<Type> param){
+	Type ans = 0.0;
+	Type shape_1 = param(0);
+	Type shape_2 = param(1);
+	Type scale = param(2);
+	ans = 0.5 - 0.5 * erf(shape_1 - exp(shape_2 - scale * dx));
+	return ans;
 }
 
 template<class Type>
@@ -242,7 +271,8 @@ Type objective_function<Type>::operator() ()
 	DATA_MATRIX(kappa_DX);
 	DATA_MATRIX(alpha_DX);
 	DATA_MATRIX(sigma_toa_DX);
-	DATA_MATRIX(sigma_b0_ss_DX);
+	//sigma_b0_ss is not extentable
+	//DATA_MATRIX(sigma_b0_ss_DX);
 	DATA_MATRIX(D_DX);
   
   
@@ -283,17 +313,33 @@ Type objective_function<Type>::operator() ()
 	DATA_MATRIX(sigma_b0_ss_bound);
 	DATA_MATRIX(D_bound);
   
+	//define a pointer variable which point to a detect function
+	//based on our input "detfn_index"
+	//and also point out the number of parameters for that detfn
+
 	Type (*detfn)(Type, vector<Type>);
 	int n_detfn_param;
 	if(detfn_index == 1){
 		detfn = det_hn;
 		n_detfn_param = 2;
 	}
-	
+	//define the parameter vector which will be used later
 	vector<Type> detfn_param(n_detfn_param);
 	
+	//declare all parameters and generate its corresponding
+	//data vectors based on data_full and data_mask
+	//and only report this parameter if it is used in the model
+	//to avoid NaN in std, outside of this .cpp, the unused
+	//parameters should be fixed in MakeADFun() by "map=list(...)"
+
+
+	//in addition, very important point, although all parameters
+	//are used here in their original names, such as g0, however,
+	//all of them are transformed by their corresponding link function
+	//in the likelihood, they need to be backtransformed
+
+	//g0
 	PARAMETER_VECTOR(g0);
-	ADREPORT(g0);
 
 	vector<Type> g0_full = g0.head(par_n_col(0, 0));
 	vector<Type> g0_mask = g0.tail(par_n_col(0, 1));
@@ -303,12 +349,12 @@ Type objective_function<Type>::operator() ()
 	if(par_n_col(0, 1) == 0){
 		g0_vec_mask.setZero();
 	} else {
-		vector<Type> g0_vec_mask = g0_DX_mask * g0_mask;
+		g0_vec_mask = g0_DX_mask * g0_mask;
 	}
+	if(incheck_scalar(1, param_og) == 1) ADREPORT(g0);
 
-
+	//sigma
 	PARAMETER_VECTOR(sigma);
-	ADREPORT(sigma);
 
 	vector<Type> sigma_full = sigma.head(par_n_col(1, 0));
 	vector<Type> sigma_mask = sigma.tail(par_n_col(1, 1));
@@ -318,9 +364,206 @@ Type objective_function<Type>::operator() ()
 	if(par_n_col(1, 1) == 0){
 		sigma_vec_mask.setZero();
 	} else {
-		vector<Type> sigma_vec_mask = sigma_DX_mask * sigma_mask;
+		sigma_vec_mask = sigma_DX_mask * sigma_mask;
 	}
+	if(incheck_scalar(2, param_og) == 1) ADREPORT(sigma);
+	
+	//lambda0
+	PARAMETER_VECTOR(lambda0);
 
+	vector<Type> lambda0_full = lambda0.head(par_n_col(2, 0));
+	vector<Type> lambda0_mask = lambda0.tail(par_n_col(2, 1));
+	vector<Type> lambda0_vec_full = lambda0_DX * lambda0_full;
+	vector<Type> lambda0_vec_mask(nrow_data_mask);
+
+	if(par_n_col(2, 1) == 0){
+		lambda0_vec_mask.setZero();
+	} else {
+		lambda0_vec_mask = lambda0_DX_mask * lambda0_mask;
+	}
+	if(incheck_scalar(3, param_og) == 1) ADREPORT(lambda0);
+  
+	//z
+	PARAMETER_VECTOR(z);
+
+	vector<Type> z_full = z.head(par_n_col(3, 0));
+	vector<Type> z_mask = z.tail(par_n_col(3, 1));
+	vector<Type> z_vec_full = z_DX * z_full;
+	vector<Type> z_vec_mask(nrow_data_mask);
+
+	if(par_n_col(3, 1) == 0){
+		z_vec_mask.setZero();
+	} else {
+		z_vec_mask = z_DX_mask * z_mask;
+	}
+	if(incheck_scalar(4, param_og) == 1) ADREPORT(z);
+
+	//shape_1
+	PARAMETER_VECTOR(shape_1);
+
+	vector<Type> shape_1_full = shape_1.head(par_n_col(4, 0));
+	vector<Type> shape_1_mask = shape_1.tail(par_n_col(4, 1));
+	vector<Type> shape_1_vec_full = shape_1_DX * shape_1_full;
+	vector<Type> shape_1_vec_mask(nrow_data_mask);
+
+	if(par_n_col(4, 1) == 0){
+		shape_1_vec_mask.setZero();
+	} else {
+		shape_1_vec_mask = shape_1_DX_mask * shape_1_mask;
+	}
+	if(incheck_scalar(5, param_og) == 1) ADREPORT(shape_1);
+
+	//shape_2
+	PARAMETER_VECTOR(shape_2);
+
+	vector<Type> shape_2_full = shape_2.head(par_n_col(5, 0));
+	vector<Type> shape_2_mask = shape_2.tail(par_n_col(5, 1));
+	vector<Type> shape_2_vec_full = shape_2_DX * shape_2_full;
+	vector<Type> shape_2_vec_mask(nrow_data_mask);
+
+	if(par_n_col(5, 1) == 0){
+		shape_2_vec_mask.setZero();
+	} else {
+		shape_2_vec_mask = shape_2_DX_mask * shape_2_mask;
+	}
+	if(incheck_scalar(6, param_og) == 1) ADREPORT(shape_2);
+
+	//shape
+	PARAMETER_VECTOR(shape);
+
+	vector<Type> shape_full = shape.head(par_n_col(6, 0));
+	vector<Type> shape_mask = shape.tail(par_n_col(6, 1));
+	vector<Type> shape_vec_full = shape_DX * shape_full;
+	vector<Type> shape_vec_mask(nrow_data_mask);
+
+	if(par_n_col(6, 1) == 0){
+		shape_vec_mask.setZero();
+	} else {
+		shape_vec_mask = shape_DX_mask * shape_mask;
+	}
+	if(incheck_scalar(7, param_og) == 1) ADREPORT(shape);
+
+	//scale
+	PARAMETER_VECTOR(scale);
+
+	vector<Type> scale_full = scale.head(par_n_col(7, 0));
+	vector<Type> scale_mask = scale.tail(par_n_col(7, 1));
+	vector<Type> scale_vec_full = scale_DX * scale_full;
+	vector<Type> scale_vec_mask(nrow_data_mask);
+
+	if(par_n_col(7, 1) == 0){
+		scale_vec_mask.setZero();
+	} else {
+		scale_vec_mask = scale_DX_mask * scale_mask;
+	}
+	if(incheck_scalar(8, param_og) == 1) ADREPORT(shape);
+
+	//b0_ss
+	PARAMETER_VECTOR(b0_ss);
+
+	vector<Type> b0_ss_full = b0_ss.head(par_n_col(8, 0));
+	vector<Type> b0_ss_mask = b0_ss.tail(par_n_col(8, 1));
+	vector<Type> b0_ss_vec_full = b0_ss_DX * b0_ss_full;
+	vector<Type> b0_ss_vec_mask(nrow_data_mask);
+
+	if(par_n_col(8, 1) == 0){
+		b0_ss_vec_mask.setZero();
+	} else {
+		b0_ss_vec_mask = b0_ss_DX_mask * b0_ss_mask;
+	}
+	if(incheck_scalar(9, param_og) == 1) ADREPORT(b0_ss);
+
+	//b1_ss
+	PARAMETER_VECTOR(b1_ss);
+
+	vector<Type> b1_ss_full = b1_ss.head(par_n_col(9, 0));
+	vector<Type> b1_ss_mask = b1_ss.tail(par_n_col(9, 1));
+	vector<Type> b1_ss_vec_full = b1_ss_DX * b1_ss_full;
+	vector<Type> b1_ss_vec_mask(nrow_data_mask);
+
+	if(par_n_col(9, 1) == 0){
+		b1_ss_vec_mask.setZero();
+	} else {
+		b1_ss_vec_mask = b1_ss_DX_mask * b1_ss_mask;
+	}
+	if(incheck_scalar(10, param_og) == 1) ADREPORT(b1_ss);
+
+	//b2_ss
+	PARAMETER_VECTOR(b2_ss);
+
+	vector<Type> b2_ss_full = b2_ss.head(par_n_col(10, 0));
+	vector<Type> b2_ss_mask = b2_ss.tail(par_n_col(10, 1));
+	vector<Type> b2_ss_vec_full = b2_ss_DX * b2_ss_full;
+	vector<Type> b2_ss_vec_mask(nrow_data_mask);
+
+	if(par_n_col(10, 1) == 0){
+		b2_ss_vec_mask.setZero();
+	} else {
+		b2_ss_vec_mask = b2_ss_DX_mask * b2_ss_mask;
+	}
+	if(incheck_scalar(11, param_og) == 1) ADREPORT(b2_ss);
+
+
+	//sigma_ss
+	PARAMETER_VECTOR(sigma_ss);
+
+	vector<Type> sigma_ss_full = sigma_ss.head(par_n_col(11, 0));
+	vector<Type> sigma_ss_mask = sigma_ss.tail(par_n_col(11, 1));
+	vector<Type> sigma_ss_vec_full = sigma_ss_DX * sigma_ss_full;
+	vector<Type> sigma_ss_vec_mask(nrow_data_mask);
+
+	if(par_n_col(11, 1) == 0){
+		sigma_ss_vec_mask.setZero();
+	} else {
+		sigma_ss_vec_mask = sigma_ss_DX_mask * sigma_ss_mask;
+	}
+	if(incheck_scalar(12, param_og) == 1) ADREPORT(sigma_ss);
+
+	//kappa
+	PARAMETER_VECTOR(kappa);
+	vector<Type> kappa_full = kappa.head(par_n_col(12, 0));
+	vector<Type> kappa_mask = kappa.tail(par_n_col(12, 1));
+	vector<Type> kappa_vec_full = kappa_DX * kappa_full;
+	vector<Type> kappa_vec_mask(nrow_data_mask);
+  
+	if(par_n_col(12, 1) == 0){
+		kappa_vec_mask.setZero();
+	} else {
+		kappa_vec_mask = kappa_DX_mask * kappa_mask;
+	}
+	if(incheck_scalar(13, param_og) == 1) ADREPORT(kappa);
+
+	//alpha
+	PARAMETER_VECTOR(alpha);
+	vector<Type> alpha_full = alpha.head(par_n_col(13, 0));
+	vector<Type> alpha_mask = alpha.tail(par_n_col(13, 1));
+	vector<Type> alpha_vec_full = alpha_DX * alpha_full;
+	vector<Type> alpha_vec_mask(nrow_data_mask);
+  
+	if(par_n_col(13, 1) == 0){
+		alpha_vec_mask.setZero();
+	} else {
+		alpha_vec_mask = alpha_DX_mask * alpha_mask;
+	}
+	if(incheck_scalar(14, param_og) == 1) ADREPORT(alpha);
+  
+	//sigma_toa
+	PARAMETER_VECTOR(sigma_toa);
+	vector<Type> sigma_toa_full = sigma_toa.head(par_n_col(14, 0));
+	vector<Type> sigma_toa_mask = sigma_toa.tail(par_n_col(14, 1));
+	vector<Type> sigma_toa_vec_full = sigma_toa_DX * sigma_toa_full;
+	vector<Type> sigma_toa_vec_mask(nrow_data_mask);
+  
+	if(par_n_col(14, 1) == 0){
+		sigma_toa_vec_mask.setZero();
+	} else {
+		sigma_toa_vec_mask = sigma_toa_DX_mask * sigma_toa_mask;
+	}
+	if(incheck_scalar(15, param_og) == 1) ADREPORT(sigma_toa);
+
+	//sigma_b0_ss, this is not extentable, so just declare it as a scalar
+	PARAMETER(sigma_b0_ss);
+	if(incheck_scalar(16, param_og) == 1) ADREPORT(sigma_b0_ss);
   
 	//settle with "D" as it will be used regardless type of model
 	PARAMETER_VECTOR(D);
@@ -337,64 +580,32 @@ Type objective_function<Type>::operator() ()
 		D_vec_mask = D_DX_mask * D_mask;
 	}
   
+	//finally declare the latent variable "u"
+	PARAMETER_VECTOR(u);
 
-	//always add kappa, if the model is not bearing model
-	//then just pow(fy_bear, is_bearing) to cancel it
-	PARAMETER_VECTOR(kappa);
-	vector<Type> kappa_full = kappa.head(par_n_col(12, 0));
-	vector<Type> kappa_mask = kappa.tail(par_n_col(12, 1));
-	vector<Type> kappa_vec_full = kappa_DX * kappa_full;
-	vector<Type> kappa_vec_mask(nrow_data_mask);
-  
-	if(par_n_col(12, 1) == 0){
-		kappa_vec_mask.setZero();
-	} else {
-		kappa_vec_mask = kappa_DX_mask * kappa_mask;
-	}
-  
-  
-	if(incheck_scalar(13, param_og) == 1) ADREPORT(kappa);
-  
-	//the same as kappa
-	PARAMETER_VECTOR(alpha);
-	vector<Type> alpha_full = alpha.head(par_n_col(13, 0));
-	vector<Type> alpha_mask = alpha.tail(par_n_col(13, 1));
-	vector<Type> alpha_vec_full = alpha_DX * alpha_full;
-	vector<Type> alpha_vec_mask(nrow_data_mask);
-  
-	if(par_n_col(13, 1) == 0){
-		alpha_vec_mask.setZero();
-	} else {
-		alpha_vec_mask = alpha_DX_mask * alpha_mask;
-	}
-  
-  
-	if(incheck_scalar(14, param_og) == 1) ADREPORT(alpha);
-  
-	//the same as kappa
-	PARAMETER_VECTOR(sigma_toa);
-	vector<Type> sigma_toa_full = sigma_toa.head(par_n_col(14, 0));
-	vector<Type> sigma_toa_mask = sigma_toa.tail(par_n_col(14, 1));
-	vector<Type> sigma_toa_vec_full = sigma_toa_DX * sigma_toa_full;
-	vector<Type> sigma_toa_vec_mask(nrow_data_mask);
-  
-	if(par_n_col(14, 1) == 0){
-		sigma_toa_vec_mask.setZero();
-	} else {
-		sigma_toa_vec_mask = sigma_toa_DX_mask * sigma_toa_mask;
-	}
-  
-  
-	if(incheck_scalar(15, param_og) == 1) ADREPORT(sigma_toa);
-  
-
-  
-  
 	//begin the calculation of nll
 	Type nll = Type(0.0);
+	
+	//declare variables for all backtransformed parameters 
 	Type g0_tem;
 	Type sigma_tem;
+	Type lambda0_tem;
+	Type z_tem;
+	Type shape_1_tem;
+	Type shape_2_tem;
+	Type shape_tem;
+	Type scale_tem;
+	Type b0_ss_tem;
+	Type b1_ss_tem;
+	Type b2_ss_tem;
+	Type sigma_ss_tem;
+	Type kappa_tem;
+	Type alpha_tem;
+	Type sigma_toa_tem;
+	Type sigma_b0_ss_tem;
+	Type D_tem;
 
+///////////////////////////////////
     
 
     for(int s = 1; s <= n_sessions; s++){
@@ -423,9 +634,7 @@ Type objective_function<Type>::operator() ()
 			//"D" is special, not related to trap nor ID, so we set id = 1 and t = 1
 			int index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1, 0, 
 				n_IDs_for_datafull, n_traps, 0);
-			Type D_tem_full = D_vec_full[index_data_full_D];
-			Type D_tem_mask = D_vec_mask[index_data_mask];
-			Type D_tem = D_tem_full + D_tem_mask;
+			D_tem = D_vec_full[index_data_full_D] + D_vec_mask[index_data_mask];
 			D_tem = trans(D_tem, par_link(16));
 			p_dot(m - 1) = Type(1.0);
 
@@ -509,49 +718,49 @@ Type objective_function<Type>::operator() ()
 					Type fy_toa = Type(1.0);
 					Type fy_bear = Type(1.0);
 					Type fy_dist = Type(1.0);
-					
+
 					//toa
-					Type sigma_toa_tem = sigma_toa_vec_full(index_data_full_D) + 
-						sigma_toa_vec_mask(index_data_mask);
-					sigma_toa_tem = trans(sigma_toa_tem, par_link(14));
-					Type toa_ssq_tem = toa_ssq(index_data_IDmask);
-					fy_toa *= pow(sigma_toa_tem, (1 - Z_i) * 0.5) * 
-						exp((-0.5) * toa_ssq_tem / sigma_toa_tem);
+					if(is_toa == 1){
+						Type sigma_toa_tem = sigma_toa_vec_full(index_data_full_D) + 
+							sigma_toa_vec_mask(index_data_mask);
+						sigma_toa_tem = trans(sigma_toa_tem, par_link(14));
+						Type toa_ssq_tem = toa_ssq(index_data_IDmask);
+						fy_toa *= pow(sigma_toa_tem, (1 - Z_i) * 0.5) * 
+							exp((-0.5) * toa_ssq_tem / sigma_toa_tem);
+					}
 					
-					fy_toa = pow(fy_toa, is_toa);
-					std::cout << "fy_toa: " << fy_toa << std::endl;
 					//bearing
-					for(int t = 1; t <= n_t; t++){
-						int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
-							0, n_IDs_for_datafull, n_traps, 0);
-						int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
-						Type kappa_tem = kappa_vec_full(index_data_full) + kappa_vec_mask(index_data_mask);
-						kappa_tem = trans(kappa_tem, par_link(12));
-						fy_bear *= exp(kappa_tem * cos(capt_bearing(index_data_full) - 
-							theta(index_data_dist_theta))) / besselI(kappa_tem, Type(0));
-						fy_bear = pow(fy_bear, capt_bin(index_data_full));
+					if(is_bearing == 1){
+						for(int t = 1; t <= n_t; t++){
+							int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
+								0, n_IDs_for_datafull, n_traps, 0);
+							int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
+							Type kappa_tem = kappa_vec_full(index_data_full) + kappa_vec_mask(index_data_mask);
+							kappa_tem = trans(kappa_tem, par_link(12));
+							fy_bear *= exp(kappa_tem * cos(capt_bearing(index_data_full) - 
+								theta(index_data_dist_theta))) / besselI(kappa_tem, Type(0));
+							fy_bear = pow(fy_bear, capt_bin(index_data_full));
+						}
 					}
+
 					
-					fy_bear = pow(fy_bear, is_bearing);
-					std::cout << "fy_bear: " << fy_bear << std::endl;
 					//dist
-					for(int t = 1; t <= n_t; t++){
-						int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
-															 0, n_IDs_for_datafull, n_traps, 0);
-						int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
-						Type alpha_tem = alpha_vec_full(index_data_full) + alpha_vec_mask(index_data_mask);
-						alpha_tem = trans(alpha_tem, par_link(13));
-						fy_dist *=  pow(pow(dx(index_data_dist_theta) / alpha_tem, alpha_tem) * exp(lgamma(alpha_tem)), (-1)) *
-							pow(capt_dist(index_data_full), (alpha_tem - 1)) * 
-							exp(-1 * alpha_tem * capt_dist(index_data_full) / dx(index_data_dist_theta));
-						fy_dist = pow(fy_dist, capt_bin(index_data_full));
+					if(is_dist){
+						for(int t = 1; t <= n_t; t++){
+							int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
+																0, n_IDs_for_datafull, n_traps, 0);
+							int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
+							Type alpha_tem = alpha_vec_full(index_data_full) + alpha_vec_mask(index_data_mask);
+							alpha_tem = trans(alpha_tem, par_link(13));
+							fy_dist *=  pow(pow(dx(index_data_dist_theta) / alpha_tem, alpha_tem) * exp(lgamma(alpha_tem)), (-1)) *
+								pow(capt_dist(index_data_full), (alpha_tem - 1)) * 
+								exp(-1 * alpha_tem * capt_dist(index_data_full) / dx(index_data_dist_theta));
+							fy_dist = pow(fy_dist, capt_bin(index_data_full));
+						}
 					}
-					
-					fy_dist = pow(fy_dist, is_dist);
-					std::cout << "fy_dist: " << fy_dist << std::endl;
+
 					fy *= fy_toa * fy_bear * fy_dist;
 					//end of the section for 'fy'
-
 
 					//we sum up likelihood (not log-likelihood) of each mask 
 					l_i += fw * fx * fy;;

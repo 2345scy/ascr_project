@@ -203,10 +203,10 @@ data <- list(n_sessions = dims$n.sessions,
 
 #to avoid "." in .cpp file
 fulllist.par.4cpp = gsub("\\.", "_", fulllist.par)
+param.og.4cpp = gsub("\\.", "_", param.og)
 
-
-parameters = vector('list', length(fulllist.par))
-names(parameters) = fulllist.par.4cpp
+parameters = vector('list', length(fulllist.par) + 1)
+names(parameters) = c(fulllist.par.4cpp, "u")
 
 for(i in 1:length(fulllist.par)){
   name.r = fulllist.par[i]
@@ -223,27 +223,37 @@ for(i in 1:length(fulllist.par)){
 parameters$u = numeric(sum(dims$n.IDs * dims$n.masks * dims$n.traps))
 
 #set the "map" argument for fixed parameters
-
+#obtain the fixed parameter that assigned by the user
 name.fixed.par = names(fix.input)[!sapply(fix.input, is.null)]
+name.fixed.par.4cpp = gsub("\\.", "_", name.fixed.par)
 
+#combine this with the parameters that will not be used in this model
+name.fixed.par.4cpp = c(name.fixed.par.4cpp, fulllist.par.4cpp[!(fulllist.par.4cpp %in% param.og.4cpp)])
 
-if(length(name.fixed.par) == 0){
-  map = list()
-} else {
-  map = vector('list', length(name.fixed.par))
-  names(map) = name.fixed.par
-  for(i in name.fixed.par) map[[i]] = factor(NA)
+#in case there is any duplication, delete them
+name.fixed.par.4cpp = unique(name.fixed.par.4cpp)
+
+if(!("ss.het" %in% bucket_info)){
+  name.fixed.par.4cpp = c(name.fixed.par.4cpp, "u")
 }
 
-map[["kappa"]] = factor(NA)
-map[["alpha"]] = factor(NA)
-map[["sigma_toa"]] = factor(NA)
+map = vector('list', length(name.fixed.par.4cpp))
+names(map) = name.fixed.par.4cpp
+
+for(i in name.fixed.par.4cpp){
+  map[[i]] = factor(NA)
+}
 
 
 compile("fit_ascr.cpp")
 dyn.load(dynlib("fit_ascr"))
 
-obj <- MakeADFun(data = data, parameters = parameters, map = map, DLL="fit_ascr")
+if(!("ss.het" %in% bucket_info)){
+  obj <- MakeADFun(data = data, parameters = parameters, map = map, DLL="fit_ascr")
+} else {
+  obj <- MakeADFun(data = data, parameters = parameters, random = "u", map = map, DLL="fit_ascr")
+}
+
 obj$hessian <- TRUE
 opt = nlminb(obj$par, obj$fn, obj$gr)
 o = sdreport(obj)
