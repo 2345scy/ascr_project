@@ -169,7 +169,7 @@ Type det_hn(Type dx, vector<Type> param){
   return ans;
 }
 
-Type det_hnn(Type dx, vector<Type> param){
+Type det_hhn(Type dx, vector<Type> param){
 	Type ans = 0.0;
 	Type lambda0 = param(0);
 	Type sigma = param(1);
@@ -194,6 +194,14 @@ Type det_lth(Type dx, vector<Type> param){
 	Type scale = param(2);
 	ans = 0.5 - 0.5 * erf(shape_1 - exp(shape_2 - scale * dx));
 	return ans;
+}
+
+Type det_th(Type dx, vector<Type> param){
+	Type ans = 0.0;
+	Type shape = param(0);
+	Type scale = param(1);
+	ans = 0.5 - 0.5 * erf(dx / scale - shape);
+	retunr ans;
 }
 
 template<class Type>
@@ -321,6 +329,18 @@ Type objective_function<Type>::operator() ()
 	int n_detfn_param;
 	if(detfn_index == 1){
 		detfn = det_hn;
+		n_detfn_param = 2;
+	} else if(detfn_index == 2){
+		detfn = det_hhn;
+		n_detfn_param = 2;
+	} else if(detfn_index == 3){
+		detfn = det_hr;
+		n_detfn_param = 3;
+	} else if(detfn_index == 4){
+		detfn = det_lth;
+		n_detfn_param = 3;
+	} else if(detfn_index == 5){
+		detfn = det_th;
 		n_detfn_param = 2;
 	}
 	//define the parameter vector which will be used later
@@ -650,11 +670,53 @@ Type objective_function<Type>::operator() ()
 				if(detfn_index == 1){
 					g0_tem = g0_vec_full(index_data_full) + g0_vec_mask(index_data_mask);
 					g0_tem = trans(g0_tem, par_link(0));
-
 					sigma_tem = sigma_vec_full(index_data_full) + sigma_vec_mask(index_data_mask);
 					sigma_tem = trans(sigma_tem, par_link(1));
+
 					detfn_param(0) = g0_tem;
 					detfn_param(1) = sigma_tem;
+
+				} else if(detfn_index == 2){
+					lambda0_tem = lambda0_vec_full(index_data_full) + lambda0_vec_mask(index_data_mask);
+					lambda0_tem = trans(lambda0_tem, par_link(2));
+					sigma_tem = sigma_vec_full(index_data_full) + sigma_vec_mask(index_data_mask);
+					sigma_tem = trans(sigma_tem, par_link(1));
+
+					detfn_param(0) = lambda0_tem;
+					detfn_param(1) = sigma_tem;
+
+				} else if(detfn_index == 3){
+					g0_tem = g0_vec_full(index_data_full) + g0_vec_mask(index_data_mask);
+					g0_tem = trans(g0_tem, par_link(0));
+					sigma_tem = sigma_vec_full(index_data_full) + sigma_vec_mask(index_data_mask);
+					sigma_tem = trans(sigma_tem, par_link(1));
+					z_tem = z_vec_full(index_data_full) + z_vec_mask(index_data_mask);
+					z_tem = trans(z_tem, par_link(3));
+
+					detfn_param(0) = g0_tem;
+					detfn_param(1) = sigma_tem;	
+					detfn_param(2) = z_tem;	
+
+				} else if(detfn_index == 4){
+					shape_1_tem = shape_1_vec_full(index_data_full) + shape_1_vec_mask(index_data_mask);
+					shape_1_tem = trans(shape_1_tem, par_link(4));
+					shape_2_tem = shape_2_vec_full(index_data_full) + shape_2_vec_mask(index_data_mask);
+					shape_2_tem = trans(shape_2_tem, par_link(5));
+					scale_tem = scale_vec_full(index_data_full) + scale_vec_mask(index_data_mask);
+					scale_tem = trans(scale_tem, par_link(7));
+
+					detfn_param(0) = shape_1_tem;
+					detfn_param(1) = shape_2_tem;	
+					detfn_param(2) = scale_tem;
+					
+				} else if(detfn_index == 5){
+					shape_tem = shape_vec_full(index_data_full) + shape_vec_mask(index_data_mask);
+					shape_tem = trans(shape_tem, par_link(6));
+					scale_tem = scale_vec_full(index_data_full) + scale_vec_mask(index_data_mask);
+					scale_tem = trans(scale_tem, par_link(7));
+
+					detfn_param(0) = shape_tem;
+					detfn_param(1) = scale_tem;	
 				}
 
 				p_k(m - 1, t - 1) = (*detfn)(dx(index_data_dist_theta), detfn_param);
@@ -745,7 +807,7 @@ Type objective_function<Type>::operator() ()
 
 					
 					//dist
-					if(is_dist){
+					if(is_dist == 1){
 						for(int t = 1; t <= n_t; t++){
 							int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
 																0, n_IDs_for_datafull, n_traps, 0);
