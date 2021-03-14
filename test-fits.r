@@ -241,7 +241,7 @@ test_that("toa fitting", {
     ## Fitting model.
     toa.capt <- example.data$capt[c("bincapt", "toa")]
     fit <- fit.ascr(capt = toa.capt, traps = example.data$traps,
-                    mask = example.data$mask, fix = list(g0 = 1))
+                    mask = example.data$mask, fix = list(g0 = 1, sigma = exp(1.759976), sigma.toa = exp(-12.660510)))
     ## Checking parameter values.
     pars.test <- c(2007.91805398409, 5.80251359291497, 0.00177369359452944)
     relative.error <- max(abs((coef(fit) - pars.test)/pars.test))

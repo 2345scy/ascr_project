@@ -169,6 +169,8 @@ Type det_hn(Type dx, vector<Type> param){
   return ans;
 }
 
+//hhn
+template<class Type>
 Type det_hhn(Type dx, vector<Type> param){
 	Type ans = 0.0;
 	Type lambda0 = param(0);
@@ -178,7 +180,9 @@ Type det_hhn(Type dx, vector<Type> param){
 	return ans;
 }
 
-Type det_hr(Type dx, vecotr<Type> param){
+//hr
+template<class Type>
+Type det_hr(Type dx, vector<Type> param){
 	Type ans = 0.0;
 	Type g0 = param(0);
   	Type sigma = param(1);
@@ -187,6 +191,8 @@ Type det_hr(Type dx, vecotr<Type> param){
 	return ans;
 }
 
+//lth
+template<class Type>
 Type det_lth(Type dx, vector<Type> param){
 	Type ans = 0.0;
 	Type shape_1 = param(0);
@@ -196,13 +202,16 @@ Type det_lth(Type dx, vector<Type> param){
 	return ans;
 }
 
+//th
+template<class Type>
 Type det_th(Type dx, vector<Type> param){
 	Type ans = 0.0;
 	Type shape = param(0);
 	Type scale = param(1);
 	ans = 0.5 - 0.5 * erf(dx / scale - shape);
-	retunr ans;
+	return ans;
 }
+
 
 template<class Type>
 Type objective_function<Type>::operator() ()
@@ -336,10 +345,10 @@ Type objective_function<Type>::operator() ()
 	} else if(detfn_index == 3){
 		detfn = det_hr;
 		n_detfn_param = 3;
-	} else if(detfn_index == 4){
+	} else if(detfn_index == 5){
 		detfn = det_lth;
 		n_detfn_param = 3;
-	} else if(detfn_index == 5){
+	} else if(detfn_index == 4){
 		detfn = det_th;
 		n_detfn_param = 2;
 	}
@@ -476,7 +485,7 @@ Type objective_function<Type>::operator() ()
 	} else {
 		scale_vec_mask = scale_DX_mask * scale_mask;
 	}
-	if(incheck_scalar(8, param_og) == 1) ADREPORT(shape);
+	if(incheck_scalar(8, param_og) == 1) ADREPORT(scale);
 
 	//b0_ss
 	PARAMETER_VECTOR(b0_ss);
@@ -697,7 +706,7 @@ Type objective_function<Type>::operator() ()
 					detfn_param(1) = sigma_tem;	
 					detfn_param(2) = z_tem;	
 
-				} else if(detfn_index == 4){
+				} else if(detfn_index == 5){
 					shape_1_tem = shape_1_vec_full(index_data_full) + shape_1_vec_mask(index_data_mask);
 					shape_1_tem = trans(shape_1_tem, par_link(4));
 					shape_2_tem = shape_2_vec_full(index_data_full) + shape_2_vec_mask(index_data_mask);
@@ -709,7 +718,7 @@ Type objective_function<Type>::operator() ()
 					detfn_param(1) = shape_2_tem;	
 					detfn_param(2) = scale_tem;
 					
-				} else if(detfn_index == 5){
+				} else if(detfn_index == 4){
 					shape_tem = shape_vec_full(index_data_full) + shape_vec_mask(index_data_mask);
 					shape_tem = trans(shape_tem, par_link(6));
 					scale_tem = scale_vec_full(index_data_full) + scale_vec_mask(index_data_mask);

@@ -9,10 +9,17 @@ source('create.capt.r')
 source('support_functions.r')
 source('test_data_preparation.r')
 
+#available test data:
+#simple fitting -- half normal
+#simple fitting -- hazard halfnormal
+#simple fitting -- hazard rate
+#bearing fitting
+#dist fitting
+#toa fitting
+#joint bearing/dist fitting
+test_data("toa fitting")
 
-test_data("simple fitting -- half normal")
-#test_data("joint bearing/dist fitting")
-
+fix_list = list(g0 = 1, sigma = exp(1.758291), sigma.toa = exp(-6.334691))
 
 capt_input = create.capt(captures, traps = traps)
 
@@ -160,7 +167,7 @@ data <- list(n_sessions = dims$n.sessions,
              #1:hn, 2:hhn, 3:hr, 4:th, 5:lth, 6:ss, 7:ss_dir, 8:ss_het
              #detfn_index = numeric_detfn(detfn),
              #temporarily for test purpose~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             detfn_index = numeric_detfn("hn"),
+             detfn_index = numeric_detfn(detfn),
              
              
              #simply use the row index of 'data.par' as the numeric subtitution of parameters
@@ -240,12 +247,13 @@ if(!("ss.het" %in% bucket_info)){
 map = vector('list', length(name.fixed.par.4cpp))
 names(map) = name.fixed.par.4cpp
 
-for(i in name.fixed.par.4cpp){
-  map[[i]] = factor(NA)
+for(i in 1:length(name.fixed.par.4cpp)){
+  par_name = name.fixed.par.4cpp[i]
+  map[[par_name]] = factor(rep(NA, length(parameters[[par_name]])))
 }
 
 
-compile("fit_ascr.cpp")
+#compile("fit_ascr.cpp")
 dyn.load(dynlib("fit_ascr"))
 
 if(!("ss.het" %in% bucket_info)){
@@ -258,3 +266,4 @@ obj$hessian <- TRUE
 opt = nlminb(obj$par, obj$fn, obj$gr)
 o = sdreport(obj)
 summary(o, "report")
+opt$objective
