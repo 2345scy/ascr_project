@@ -140,6 +140,21 @@ int lookup_n_detection(int is_ani, int s, int a, int i, vector<int> n_a,
   return ans;
 }
 
+
+int look_up_u(int s, int i, vector<int> n_i){
+	int ans = 0;
+	if(s > 1){
+		for(int s_index = 1; s_index < s; s_index++){
+			ans += n_i(s_index - 1);
+		}
+	}
+
+	ans += i - 1;
+	return ans;
+
+}
+
+
 template<class Type>
 Type trans(Type x, int link){
   Type ans = 0.0;
@@ -212,6 +227,111 @@ Type det_th(Type dx, vector<Type> param){
 	return ans;
 }
 
+//ss
+template<class Type>
+Type det_ss_identical(Type dx, vector<Type> param){
+	Type ans = 0.0;
+	Type b0_ss = param(0);
+	Type b1_ss = param(1);
+	Type sigma_ss = param(2);
+	Type cutoff = param(3);
+	Type mu = b0_ss - b1_ss * dx;
+	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
+	return ans;
+}
+
+template<class Type>
+Type det_ss_log(Type dx, vector<Type> param){
+	Type ans = 0.0;
+	Type b0_ss = param(0);
+	Type b1_ss = param(1);
+	Type sigma_ss = param(2);
+	Type cutoff = param(3);
+	Type mu = exp(b0_ss - b1_ss * dx);
+	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
+	return ans;
+}
+
+template<class Type>
+Type det_ss_spherical(Type dx, vector<Type> param){
+	Type ans = 0.0;
+	Type b0_ss = param(0);
+	Type b1_ss = param(1);
+	Type sigma_ss = param(2);
+	Type cutoff = param(3);
+	Type mu = 0.0;
+	if(dx > 1){
+		mu += b0_ss - 20 * log10(dx) - b1_ss * (dx - 1);
+	} else {
+		mu += b0_ss;
+	}
+	
+	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
+	return ans;
+}
+
+//ss_dir
+template<class Type>
+Type det_ss_dir_identical(Type dx, vector<Type> param){
+	Type ans = 0.0;
+	Type b0_ss = param(0);
+	Type b1_ss = param(1);
+	Type b2_ss = param(2);
+ 	Type sigma_ss = param(3);
+	Type cutoff = param(4);
+	Type theta = param(5);
+	Type mu = b0_ss - (b1_ss - b2_ss * (cos(theta) - 1)) * dx;
+	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
+	return ans;
+}
+
+template<class Type>
+Type det_ss_dir_log(Type dx, vector<Type> param){
+	Type ans = 0.0;
+	Type b0_ss = param(0);
+	Type b1_ss = param(1);
+	Type b2_ss = param(2);
+ 	Type sigma_ss = param(3);
+	Type cutoff = param(4);
+	Type theta = param(5);
+	Type mu = exp(b0_ss - (b1_ss - b2_ss * (cos(theta) - 1)) * dx);
+	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
+	return ans;
+}
+
+template<class Type>
+Type det_ss_dir_spherical(Type dx, vector<Type> param){
+	Type ans = 0.0;
+	Type b0_ss = param(0);
+	Type b1_ss = param(1);
+	Type b2_ss = param(2);
+ 	Type sigma_ss = param(3);
+	Type cutoff = param(4);
+	Type theta = param(5);
+	Type mu = 0.0;
+	if(dx > 1){
+		mu += b0_ss;
+	} else {
+		mu += b0_ss - 20 * log10(dx) - (b1_ss - b2_ss * (cos(theta) - 1)) * (dx - 1);
+	}
+	
+	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
+	return ans;
+}
+
+//ss_het
+template<class Type>
+Type det_ss_het(Type dx, vector<Type> param){
+	Type ans = 0.0;
+	Type b0_ss = param(0);
+	Type b1_ss = param(1);
+	Type sigma_ss = param(2);
+	Type cutoff = param(3);
+	Type u = param(4);
+	Type mu = b0_ss - b1_ss * dx + u;
+	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
+	return ans;
+}
 
 template<class Type>
 Type objective_function<Type>::operator() ()
@@ -249,6 +369,7 @@ Type objective_function<Type>::operator() ()
 	DATA_IVECTOR(param_og);
 	DATA_IMATRIX(par_n_col);
 	DATA_IVECTOR(par_link);
+	DATA_INTEGER(ss_link);
   
   
 	DATA_INTEGER(is_animalID);
@@ -351,6 +472,30 @@ Type objective_function<Type>::operator() ()
 	} else if(detfn_index == 4){
 		detfn = det_th;
 		n_detfn_param = 2;
+	} else if(detfn_index == 6){
+		if(ss_link == 1){
+			detfn = det_ss_identical;
+		} else if(ss_link == 2){
+			detfn = det_ss_log;
+		} else if(ss_link == 4){
+			detfn = det_ss_spherical;
+		}
+		//in ss model, 'cutoff' is one parameter
+		n_detfn_param = 4;
+	} else if(detfn_index == 7){
+		if(ss_link == 1){
+			detfn = det_ss_dir_identical;
+		} else if(ss_link == 2){
+			detfn = det_ss_dir_log;
+		} else if(ss_link == 4){
+			detfn = det_ss_dir_spherical;
+		}
+		//"cutoff" and "theta"
+		n_detfn_param = 6;
+	} else if(detfn_index == 8){
+		detfn = det_ss_het;
+		//"sigma_b0_ss" is not here, but random effect "u" is
+		n_detfn_param = 5;
 	}
 	//define the parameter vector which will be used later
 	vector<Type> detfn_param(n_detfn_param);

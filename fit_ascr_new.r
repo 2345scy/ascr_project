@@ -70,6 +70,7 @@ data.ID_mask = o.ss$data.ID_mask
 dims = o.ss$dims
 bucket_info = o.ss$bucket_info
 ss.opts = o.ss$ss.opts
+ss.link = o.ss$ss.link
 
 o.CR_SL = CR_SL(cue.rates = cue.rates, survey.length = survey.length,
                 bucket_info = bucket_info, dims = dims)
@@ -182,7 +183,9 @@ data <- list(n_sessions = dims$n.sessions,
              par_n_col = as.matrix(data.par[, c('n_col_full', 'n_col_mask')]),
              #link index: 1 - identity, 2 - log, 3 - logit
              par_link = numeric_link(data.par[['link']]),
-             
+             #link index: 1 - identity, 2 - log, 4 - spherical
+             ss_link = numeric_link(ss.link),
+
              is_animalID = as.numeric("animal_ID" %in% colnames(data.full)),
              is_ss_origin = as.numeric(all("ss" %in% bucket_info,
                                            !"ss.het" %in% bucket_info,
@@ -227,7 +230,7 @@ for(i in 1:length(fulllist.par)){
   parameters[[name.cpp]] = sv.input[[name.r]]
 }
 
-parameters$u = numeric(sum(dims$n.IDs * dims$n.masks * dims$n.traps))
+parameters$u = numeric(length(dims$n.detection))
 
 #set the "map" argument for fixed parameters
 #obtain the fixed parameter that assigned by the user

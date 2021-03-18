@@ -394,6 +394,7 @@ numeric_ID = function(dat){
 }
 
 numeric_link = function(link){
+  #if no match, return 0
   ans = numeric(length(link))
   for(i in 1:length(link)){
     if(link[i] == 'identity') ans[i] = 1
