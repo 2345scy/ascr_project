@@ -151,8 +151,12 @@ int look_up_u(int s, int i, vector<int> n_i){
 
 	ans += i - 1;
 	return ans;
-
 }
+
+template<class Type>
+Type bound_check(Type nll, matrix<Type> bound)
+
+
 
 
 template<class Type>
@@ -228,109 +232,82 @@ Type det_th(Type dx, vector<Type> param){
 }
 
 //ss
+//in ss, we do something different, here we use
+//the same input, but output is back-transformed mu
+//instead of the probability be detected
 template<class Type>
-Type det_ss_identical(Type dx, vector<Type> param){
-	Type ans = 0.0;
+Type mu_ss_identical(Type dx, vector<Type> param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
-	Type sigma_ss = param(2);
-	Type cutoff = param(3);
 	Type mu = b0_ss - b1_ss * dx;
-	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
-	return ans;
+	return mu;
 }
 
 template<class Type>
-Type det_ss_log(Type dx, vector<Type> param){
-	Type ans = 0.0;
+Type mu_ss_log(Type dx, vector<Type> param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
-	Type sigma_ss = param(2);
-	Type cutoff = param(3);
 	Type mu = exp(b0_ss - b1_ss * dx);
-	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
-	return ans;
+	return mu;
 }
 
 template<class Type>
-Type det_ss_spherical(Type dx, vector<Type> param){
-	Type ans = 0.0;
+Type mu_ss_spherical(Type dx, vector<Type> param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
-	Type sigma_ss = param(2);
-	Type cutoff = param(3);
 	Type mu = 0.0;
 	if(dx > 1){
 		mu += b0_ss - 20 * log10(dx) - b1_ss * (dx - 1);
 	} else {
 		mu += b0_ss;
 	}
-	
-	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
-	return ans;
+	return mu;
 }
 
 //ss_dir
 template<class Type>
-Type det_ss_dir_identical(Type dx, vector<Type> param){
-	Type ans = 0.0;
+Type mu_ss_dir_identical(Type dx, vector<Type> param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
 	Type b2_ss = param(2);
- 	Type sigma_ss = param(3);
-	Type cutoff = param(4);
-	Type theta = param(5);
+	Type theta = param(3);
 	Type mu = b0_ss - (b1_ss - b2_ss * (cos(theta) - 1)) * dx;
-	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
-	return ans;
+	return mu;
 }
 
 template<class Type>
-Type det_ss_dir_log(Type dx, vector<Type> param){
-	Type ans = 0.0;
+Type mu_ss_dir_log(Type dx, vector<Type> param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
 	Type b2_ss = param(2);
- 	Type sigma_ss = param(3);
-	Type cutoff = param(4);
-	Type theta = param(5);
+	Type theta = param(3);
 	Type mu = exp(b0_ss - (b1_ss - b2_ss * (cos(theta) - 1)) * dx);
-	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
-	return ans;
+	return mu;
 }
 
 template<class Type>
-Type det_ss_dir_spherical(Type dx, vector<Type> param){
-	Type ans = 0.0;
+Type mu_ss_dir_spherical(Type dx, vector<Type> param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
 	Type b2_ss = param(2);
- 	Type sigma_ss = param(3);
-	Type cutoff = param(4);
-	Type theta = param(5);
+	Type theta = param(3);
 	Type mu = 0.0;
 	if(dx > 1){
 		mu += b0_ss;
 	} else {
 		mu += b0_ss - 20 * log10(dx) - (b1_ss - b2_ss * (cos(theta) - 1)) * (dx - 1);
 	}
-	
-	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
-	return ans;
+	return mu;
 }
 
 //ss_het
 template<class Type>
-Type det_ss_het(Type dx, vector<Type> param){
-	Type ans = 0.0;
+Type mu_ss_het(Type dx, vector<Type> param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
-	Type sigma_ss = param(2);
-	Type cutoff = param(3);
-	Type u = param(4);
+	Type u = param(2);
 	Type mu = b0_ss - b1_ss * dx + u;
-	ans = 1 - pnorm((cutoff - mu) / sigma_ss);
-	return ans;
+	return mu;
 }
 
 template<class Type>
@@ -350,7 +327,6 @@ Type objective_function<Type>::operator() ()
 	DATA_INTEGER(nrow_data_mask);
 	DATA_INTEGER(nrow_dx);
 	DATA_INTEGER(nrow_id_mask);
-
 
 	DATA_VECTOR(A);
 	DATA_VECTOR(survey_length);
@@ -373,6 +349,7 @@ Type objective_function<Type>::operator() ()
   
   
 	DATA_INTEGER(is_animalID);
+	DATA_INTEGER(is_ss);
 	DATA_INTEGER(is_ss_origin);
 	DATA_INTEGER(is_ss_het);
 	DATA_INTEGER(is_ss_dir);
@@ -429,10 +406,11 @@ Type objective_function<Type>::operator() ()
 	DATA_MATRIX(kappa_DX_mask);
 	DATA_MATRIX(alpha_DX_mask);
 	DATA_MATRIX(sigma_toa_DX_mask);
-	DATA_MATRIX(sigma_b0_ss_DX_mask);
+	//sigma_b0_ss is not extentable
+	//DATA_MATRIX(sigma_b0_ss_DX_mask);
 	DATA_MATRIX(D_DX_mask);
   
-  
+	
 	DATA_MATRIX(g0_bound);
 	DATA_MATRIX(sigma_bound);
 	DATA_MATRIX(lambda0_bound);
@@ -474,28 +452,25 @@ Type objective_function<Type>::operator() ()
 		n_detfn_param = 2;
 	} else if(detfn_index == 6){
 		if(ss_link == 1){
-			detfn = det_ss_identical;
+			detfn = mu_ss_identical;
 		} else if(ss_link == 2){
-			detfn = det_ss_log;
+			detfn = mu_ss_log;
 		} else if(ss_link == 4){
-			detfn = det_ss_spherical;
+			detfn = mu_ss_spherical;
 		}
-		//in ss model, 'cutoff' is one parameter
-		n_detfn_param = 4;
+		n_detfn_param = 2;
 	} else if(detfn_index == 7){
 		if(ss_link == 1){
-			detfn = det_ss_dir_identical;
+			detfn = mu_ss_dir_identical;
 		} else if(ss_link == 2){
-			detfn = det_ss_dir_log;
+			detfn = mu_ss_dir_log;
 		} else if(ss_link == 4){
-			detfn = det_ss_dir_spherical;
+			detfn = mu_ss_dir_spherical;
 		}
-		//"cutoff" and "theta"
-		n_detfn_param = 6;
+		n_detfn_param = 4;
 	} else if(detfn_index == 8){
-		detfn = det_ss_het;
-		//"sigma_b0_ss" is not here, but random effect "u" is
-		n_detfn_param = 5;
+		detfn = mu_ss_het;
+		n_detfn_param = 3;
 	}
 	//define the parameter vector which will be used later
 	vector<Type> detfn_param(n_detfn_param);
@@ -779,6 +754,11 @@ Type objective_function<Type>::operator() ()
 	Type sigma_b0_ss_tem;
 	Type D_tem;
 
+	//mu = E(ss|x), since it is "session-mask-trap"
+	//level data, use data_dist_theta's index
+	vector<Type> mu(nrow_dx);
+	mu.setZero();
+
 ///////////////////////////////////
     
 
@@ -871,9 +851,46 @@ Type objective_function<Type>::operator() ()
 
 					detfn_param(0) = shape_tem;
 					detfn_param(1) = scale_tem;	
-				}
+				} else if(detfn_index == 6){
+					b0_ss_tem = b0_ss_vec_full(index_data_full) + b0_ss_vec_mask(index_data_mask);
+					b0_ss_tem = trans(b0_ss_tem, par_link(8));
+					b1_ss_tem = b1_ss_vec_full(index_data_full) + b1_ss_vec_mask(index_data_mask);
+					b1_ss_tem = trans(b1_ss_tem, par_link(9));
 
-				p_k(m - 1, t - 1) = (*detfn)(dx(index_data_dist_theta), detfn_param);
+					detfn_param(0) = b0_ss_tem;
+					detfn_param(1) = b1_ss_tem;
+
+				} else if(detfn_index == 7){
+					b0_ss_tem = b0_ss_vec_full(index_data_full) + b0_ss_vec_mask(index_data_mask);
+					b0_ss_tem = trans(b0_ss_tem, par_link(8));
+					b1_ss_tem = b1_ss_vec_full(index_data_full) + b1_ss_vec_mask(index_data_mask);
+					b1_ss_tem = trans(b1_ss_tem, par_link(9));
+					b2_ss_tem = b2_ss_vec_full(index_data_full) + b2_ss_vec_mask(index_data_mask);
+					b2_ss_tem = trans(b2_ss_tem, par_link(10));
+
+
+					detfn_param(0) = b0_ss_tem;
+					detfn_param(1) = b1_ss_tem;
+					detfn_param(2) = b2_ss_tem;
+					detfn_param(3) = theta(index_data_dist_theta);
+
+				} 
+				//het is detfn_index == 8, not sure how to do it yet
+				if(is_ss == 0){
+					p_k(m - 1, t - 1) = (*detfn)(dx(index_data_dist_theta), detfn_param);
+				} else if (is_ss_origin == 1){
+					sigma_ss_tem = sigma_ss_vec_full(index_data_full) + sigma_ss_vec_mask(index_data_mask);
+					sigma_ss_tem = trans(sigma_ss_tem, par_link(11));
+					mu(index_data_dist_theta) = (*detfn)(dx(index_data_dist_theta), detfn_param);
+					p_k(m - 1, t - 1) = 1 - pnorm((cutoff - mu(index_data_dist_theta)) / sigma_ss_tem);
+					std::cout << "b0_ss: " << b0_ss_tem << std::endl;
+					std::cout << "b1_ss: " << b1_ss_tem << std::endl;
+					std::cout << "dx: " << dx(index_data_dist_theta) << std::endl;
+					std::cout << "mu: " << mu(index_data_dist_theta) << std::endl;
+					std::cout << "sigma_ss: " << sigma_ss_tem << std::endl;
+					std::cout << "p_k: " << p_k(m - 1, t - 1) << std::endl;
+				}
+				
 				p_dot(m - 1) *= 1 - p_k(m - 1, t - 1);
 				//end for trap t
 			}
@@ -884,7 +901,7 @@ Type objective_function<Type>::operator() ()
 		}
       
 		//end of lambda_theta calculation
-      
+		
       
 		//canceled out original likelihood: nll -= dpois(Type(n_i), lambda_theta, true);
 		nll += lambda_theta;
@@ -922,8 +939,15 @@ Type objective_function<Type>::operator() ()
 					for(int t = 1; t <= n_t; t++){
 						int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
 							0, n_IDs_for_datafull, n_traps, 0);
-						fw *= pow(p_k(m - 1, t - 1), capt_bin(index_data_full)) * 
-							pow((1 - p_k(m - 1, t - 1)), (1 - capt_bin(index_data_full)));
+						
+						if(is_ss == 0){
+							fw *= pow(p_k(m - 1, t - 1), capt_bin(index_data_full)) * 
+								pow((1 - p_k(m - 1, t - 1)), (1 - capt_bin(index_data_full)));
+						} else if(is_ss_het == 0){
+							//pow(p_k(), capt_bin()) term could be cancelled out with fy_ss
+							fw *= pow((1 - p_k(m - 1, t - 1)), (1 - capt_bin(index_data_full)));
+						}
+
 					}
 					//cancelled out p_dot from original likelihood: fw /= p_dot(m - 1);
 
@@ -934,6 +958,7 @@ Type objective_function<Type>::operator() ()
 					Type fy_toa = Type(1.0);
 					Type fy_bear = Type(1.0);
 					Type fy_dist = Type(1.0);
+					Type fy_ss = Type(1.0);
 
 					//toa
 					if(is_toa == 1){
@@ -975,11 +1000,24 @@ Type objective_function<Type>::operator() ()
 						}
 					}
 
-					fy *= fy_toa * fy_bear * fy_dist;
+					//ss
+					if(is_ss_origin == 1){
+						for(int t = 1; t <= n_t; t++){
+							int index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
+																0, n_IDs_for_datafull, n_traps, 0);
+							int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
+							sigma_ss_tem = sigma_ss_vec_full(index_data_full) + sigma_ss_vec_mask(index_data_mask);
+							sigma_ss_tem = trans(sigma_ss_tem, par_link(11));
+							Type mu_tem = mu(index_data_dist_theta);
+							fy_ss *= dnorm(capt_ss(index_data_full), mu_tem, sigma_ss_tem);
+							fy_ss = pow(fy_ss, capt_bin(index_data_full));
+						}
+					}
+					fy *= fy_toa * fy_bear * fy_dist * fy_ss;
 					//end of the section for 'fy'
 
 					//we sum up likelihood (not log-likelihood) of each mask 
-					l_i += fw * fx * fy;;
+					l_i += fw * fx * fy;
 					//end for mask m
 				}
 			  

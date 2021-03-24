@@ -394,13 +394,17 @@ numeric_ID = function(dat){
 }
 
 numeric_link = function(link){
-  #if no match, return 0
-  ans = numeric(length(link))
-  for(i in 1:length(link)){
-    if(link[i] == 'identity') ans[i] = 1
-    if(link[i] == 'log') ans[i] = 2
-    if(link[i] == 'logit') ans[i] = 3
-    if(link[i] == 'spherical') ans[i] = 4
+  if(is.null(link)){
+	ans = 0
+  } else {
+	#if no match, return 0
+	ans = numeric(length(link))
+	for(i in 1:length(link)){
+		if(link[i] == 'identity') ans[i] = 1
+		if(link[i] == 'log') ans[i] = 2
+		if(link[i] == 'logit') ans[i] = 3
+		if(link[i] == 'spherical') ans[i] = 4
+	}
   }
   return(ans)
 }

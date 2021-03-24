@@ -17,9 +17,11 @@ source('test_data_preparation.r')
 #dist fitting
 #toa fitting
 #joint bearing/dist fitting
-test_data("toa fitting")
+#ss fitting
+#joint ss/toa fitting
+test_data("ss fitting")
 
-fix_list = list(g0 = 1, sigma = exp(1.758291), sigma.toa = exp(-6.334691))
+sv_list = NULL
 
 capt_input = create.capt(captures, traps = traps)
 
@@ -70,7 +72,7 @@ data.ID_mask = o.ss$data.ID_mask
 dims = o.ss$dims
 bucket_info = o.ss$bucket_info
 ss.opts = o.ss$ss.opts
-ss.link = o.ss$ss.link
+ss.link = ss.opts$ss.link
 
 o.CR_SL = CR_SL(cue.rates = cue.rates, survey.length = survey.length,
                 bucket_info = bucket_info, dims = dims)
@@ -146,7 +148,8 @@ data <- list(n_sessions = dims$n.sessions,
              n_masks = dims$n.masks,
              n_detection = dims$n.detection,
              n_calls_each_animal = dims$n.calls.each.animal,
-             
+
+
              nrow_data_full = nrow(data.full),
              nrow_data_mask = nrow(data.mask),
              nrow_dx = nrow(data.dists.thetas),
@@ -187,6 +190,7 @@ data <- list(n_sessions = dims$n.sessions,
              ss_link = numeric_link(ss.link),
 
              is_animalID = as.numeric("animal_ID" %in% colnames(data.full)),
+             is_ss = as.numeric("ss" %in% bucket_info),
              is_ss_origin = as.numeric(all("ss" %in% bucket_info,
                                            !"ss.het" %in% bucket_info,
                                            !"ss.dir" %in% bucket_info)),
@@ -230,7 +234,7 @@ for(i in 1:length(fulllist.par)){
   parameters[[name.cpp]] = sv.input[[name.r]]
 }
 
-parameters$u = numeric(length(dims$n.detection))
+parameters$u = numeric(sum(dims$n.IDs))
 
 #set the "map" argument for fixed parameters
 #obtain the fixed parameter that assigned by the user
@@ -256,7 +260,7 @@ for(i in 1:length(name.fixed.par.4cpp)){
 }
 
 
-#compile("fit_ascr.cpp")
+compile("fit_ascr.cpp")
 dyn.load(dynlib("fit_ascr"))
 
 if(!("ss.het" %in% bucket_info)){

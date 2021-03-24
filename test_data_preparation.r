@@ -128,6 +128,41 @@ test_data = function(model_type){
     fix_list <<- list(g0 = 1)
     local_input <<- FALSE
     sound.speed <<- 331
+  } else if (model_type == "ss fitting"){
+    captures = data.frame(session = rep(1, 127 * 6), ID = rep(1:127, 6), occasion = rep(1, 127 * 6),
+                          trap = rep(1:6, each = 127), stringsAsFactors = FALSE)
+    captures$ss = as.vector(example.data$capt[["ss"]])
+    captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
+    traps <<- example.data$traps
+    masks <<- example.data$mask
+    par.extend <<- NULL
+    ss.opts <<- list(cutoff = 60)
+    survey.length <<- NULL
+    cue.rates <<- NULL
+    detfn <<- NULL
+    bounds <<- NULL
+    sv_list <<- list(b0.ss = 90, b1.ss = 4, sigma.ss = 10)
+    fix_list <<- NULL
+    local_input <<- FALSE
+    sound.speed <<- 331
+  } else if (model_type == "joint ss/toa fitting"){
+    captures = data.frame(session = rep(1, 127 * 6), ID = rep(1:127, 6), occasion = rep(1, 127 * 6),
+                          trap = rep(1:6, each = 127), stringsAsFactors = FALSE)
+    captures$ss = as.vector(example.data$capt[["ss"]])
+    captures$toa = as.vector(example.data$capt[["toa"]])
+    captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
+    traps <<- example.data$traps
+    masks <<- example.data$mask
+    par.extend <<- NULL
+    ss.opts <<- list(cutoff = 60)
+    survey.length <<- NULL
+    cue.rates <<- NULL
+    detfn <<- NULL
+    bounds <<- NULL
+    sv_list <<- list(b0.ss = 90, b1.ss = 4, sigma.ss = 10)
+    fix_list <<- NULL
+    local_input <<- FALSE
+    sound.speed <<- 331
   }
 
 }
