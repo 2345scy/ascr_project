@@ -153,10 +153,6 @@ int look_up_u(int s, int i, vector<int> n_i){
 	return ans;
 }
 
-template<class Type>
-Type bound_check(Type nll, matrix<Type> bound)
-
-
 
 
 template<class Type>
