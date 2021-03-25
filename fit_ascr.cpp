@@ -309,6 +309,8 @@ Type mu_ss_het(Type dx, vector<Type> param){
 template<class Type>
 Type objective_function<Type>::operator() ()
 {
+	Type nll = Type(0.0);
+	
 	DATA_INTEGER(n_sessions);
 	DATA_IVECTOR(n_animals);
 	DATA_IVECTOR(n_IDs);
@@ -470,7 +472,7 @@ Type objective_function<Type>::operator() ()
 	}
 	//define the parameter vector which will be used later
 	vector<Type> detfn_param(n_detfn_param);
-	
+
 	//declare all parameters and generate its corresponding
 	//data vectors based on data_full and data_mask
 	//and only report this parameter if it is used in the model
@@ -485,6 +487,10 @@ Type objective_function<Type>::operator() ()
 
 	//g0
 	PARAMETER_VECTOR(g0);
+
+	for(int i = 0; i < (par_n_col(0, 0) + par_n_col(0, 1)); i++){
+		if(g0(i) < g0_bound(0, i) || g0(i) > g0_bound(1, i)) nll += Inf; //infinity is Inf or INFINITY?
+	}
 
 	vector<Type> g0_full = g0.head(par_n_col(0, 0));
 	vector<Type> g0_mask = g0.tail(par_n_col(0, 1));
@@ -501,6 +507,10 @@ Type objective_function<Type>::operator() ()
 	//sigma
 	PARAMETER_VECTOR(sigma);
 
+	for(int i = 0; i < (par_n_col(1, 0) + par_n_col(1, 1)); i++){
+		if(sigma(i) < sigma_bound(0, i) || sigma(i) > sigma_bound(1, i)) nll += Inf;
+	}
+
 	vector<Type> sigma_full = sigma.head(par_n_col(1, 0));
 	vector<Type> sigma_mask = sigma.tail(par_n_col(1, 1));
 	vector<Type> sigma_vec_full = sigma_DX * sigma_full;
@@ -515,6 +525,10 @@ Type objective_function<Type>::operator() ()
 	
 	//lambda0
 	PARAMETER_VECTOR(lambda0);
+
+	for(int i = 0; i < (par_n_col(2, 0) + par_n_col(2, 1)); i++){
+		if(lambda0(i) < lambda0_bound(0, i) || lambda0(i) > lambda0_bound(1, i)) nll += Inf;
+	}
 
 	vector<Type> lambda0_full = lambda0.head(par_n_col(2, 0));
 	vector<Type> lambda0_mask = lambda0.tail(par_n_col(2, 1));
@@ -531,6 +545,11 @@ Type objective_function<Type>::operator() ()
 	//z
 	PARAMETER_VECTOR(z);
 
+	for(int i = 0; i < (par_n_col(3, 0) + par_n_col(3, 1)); i++){
+		if(z(i) < z_bound(0, i) || z(i) > z_bound(1, i)) nll += Inf;
+	}
+
+
 	vector<Type> z_full = z.head(par_n_col(3, 0));
 	vector<Type> z_mask = z.tail(par_n_col(3, 1));
 	vector<Type> z_vec_full = z_DX * z_full;
@@ -545,6 +564,10 @@ Type objective_function<Type>::operator() ()
 
 	//shape_1
 	PARAMETER_VECTOR(shape_1);
+
+	for(int i = 0; i < (par_n_col(4, 0) + par_n_col(4, 1)); i++){
+		if(shape_1(i) < shape_1_bound(0, i) || shape_1(i) > shape_1_bound(1, i)) nll += Inf;
+	}
 
 	vector<Type> shape_1_full = shape_1.head(par_n_col(4, 0));
 	vector<Type> shape_1_mask = shape_1.tail(par_n_col(4, 1));
@@ -561,6 +584,10 @@ Type objective_function<Type>::operator() ()
 	//shape_2
 	PARAMETER_VECTOR(shape_2);
 
+	for(int i = 0; i < (par_n_col(5, 0) + par_n_col(5, 1)); i++){
+		if(shape_2(i) < shape_2_bound(0, i) || shape_2(i) > shape_2_bound(1, i)) nll += Inf;
+	}
+
 	vector<Type> shape_2_full = shape_2.head(par_n_col(5, 0));
 	vector<Type> shape_2_mask = shape_2.tail(par_n_col(5, 1));
 	vector<Type> shape_2_vec_full = shape_2_DX * shape_2_full;
@@ -575,6 +602,10 @@ Type objective_function<Type>::operator() ()
 
 	//shape
 	PARAMETER_VECTOR(shape);
+
+	for(int i = 0; i < (par_n_col(6, 0) + par_n_col(6, 1)); i++){
+		if(shape(i) < shape_bound(0, i) || shape(i) > shape_bound(1, i)) nll += Inf;
+	}
 
 	vector<Type> shape_full = shape.head(par_n_col(6, 0));
 	vector<Type> shape_mask = shape.tail(par_n_col(6, 1));
@@ -591,6 +622,10 @@ Type objective_function<Type>::operator() ()
 	//scale
 	PARAMETER_VECTOR(scale);
 
+	for(int i = 0; i < (par_n_col(7, 0) + par_n_col(7, 1)); i++){
+		if(scale(i) < scale_bound(0, i) || scale(i) > scale_bound(1, i)) nll += Inf;
+	}
+
 	vector<Type> scale_full = scale.head(par_n_col(7, 0));
 	vector<Type> scale_mask = scale.tail(par_n_col(7, 1));
 	vector<Type> scale_vec_full = scale_DX * scale_full;
@@ -605,6 +640,10 @@ Type objective_function<Type>::operator() ()
 
 	//b0_ss
 	PARAMETER_VECTOR(b0_ss);
+
+	for(int i = 0; i < (par_n_col(8, 0) + par_n_col(8, 1)); i++){
+		if(b0_ss(i) < b0_ss_bound(0, i) || b0_ss(i) > b0_ss_bound(1, i)) nll += Inf;
+	}
 
 	vector<Type> b0_ss_full = b0_ss.head(par_n_col(8, 0));
 	vector<Type> b0_ss_mask = b0_ss.tail(par_n_col(8, 1));
@@ -621,6 +660,10 @@ Type objective_function<Type>::operator() ()
 	//b1_ss
 	PARAMETER_VECTOR(b1_ss);
 
+	for(int i = 0; i < (par_n_col(9, 0) + par_n_col(9, 1)); i++){
+		if(b1_ss(i) < b1_ss_bound(0, i) || b1_ss(i) > b1_ss_bound(1, i)) nll += Inf;
+	}
+
 	vector<Type> b1_ss_full = b1_ss.head(par_n_col(9, 0));
 	vector<Type> b1_ss_mask = b1_ss.tail(par_n_col(9, 1));
 	vector<Type> b1_ss_vec_full = b1_ss_DX * b1_ss_full;
@@ -635,6 +678,10 @@ Type objective_function<Type>::operator() ()
 
 	//b2_ss
 	PARAMETER_VECTOR(b2_ss);
+
+	for(int i = 0; i < (par_n_col(10, 0) + par_n_col(10, 1)); i++){
+		if(b2_ss(i) < b2_ss_bound(0, i) || b2_ss(i) > b2_ss_bound(1, i)) nll += Inf;
+	}
 
 	vector<Type> b2_ss_full = b2_ss.head(par_n_col(10, 0));
 	vector<Type> b2_ss_mask = b2_ss.tail(par_n_col(10, 1));
@@ -652,6 +699,10 @@ Type objective_function<Type>::operator() ()
 	//sigma_ss
 	PARAMETER_VECTOR(sigma_ss);
 
+	for(int i = 0; i < (par_n_col(11, 0) + par_n_col(11, 1)); i++){
+		if(sigma_ss(i) < sigma_ss_bound(0, i) || sigma_ss(i) > sigma_ss_bound(1, i)) nll += Inf;
+	}
+
 	vector<Type> sigma_ss_full = sigma_ss.head(par_n_col(11, 0));
 	vector<Type> sigma_ss_mask = sigma_ss.tail(par_n_col(11, 1));
 	vector<Type> sigma_ss_vec_full = sigma_ss_DX * sigma_ss_full;
@@ -666,6 +717,12 @@ Type objective_function<Type>::operator() ()
 
 	//kappa
 	PARAMETER_VECTOR(kappa);
+
+	for(int i = 0; i < (par_n_col(12, 0) + par_n_col(12, 1)); i++){
+		if(kappa(i) < kappa_bound(0, i) || kappa(i) > kappa_bound(1, i)) nll += Inf;
+	}
+
+
 	vector<Type> kappa_full = kappa.head(par_n_col(12, 0));
 	vector<Type> kappa_mask = kappa.tail(par_n_col(12, 1));
 	vector<Type> kappa_vec_full = kappa_DX * kappa_full;
@@ -680,6 +737,12 @@ Type objective_function<Type>::operator() ()
 
 	//alpha
 	PARAMETER_VECTOR(alpha);
+
+	for(int i = 0; i < (par_n_col(13, 0) + par_n_col(13, 1)); i++){
+		if(alpha(i) < alpha_bound(0, i) || alpha(i) > alpha_bound(1, i)) nll += Inf;
+	}
+
+
 	vector<Type> alpha_full = alpha.head(par_n_col(13, 0));
 	vector<Type> alpha_mask = alpha.tail(par_n_col(13, 1));
 	vector<Type> alpha_vec_full = alpha_DX * alpha_full;
@@ -694,6 +757,11 @@ Type objective_function<Type>::operator() ()
   
 	//sigma_toa
 	PARAMETER_VECTOR(sigma_toa);
+
+	for(int i = 0; i < (par_n_col(14, 0) + par_n_col(14, 1)); i++){
+		if(sigma_toa(i) < sigma_toa_bound(0, i) || sigma_toa(i) > sigma_toa_bound(1, i)) nll += Inf;
+	}
+
 	vector<Type> sigma_toa_full = sigma_toa.head(par_n_col(14, 0));
 	vector<Type> sigma_toa_mask = sigma_toa.tail(par_n_col(14, 1));
 	vector<Type> sigma_toa_vec_full = sigma_toa_DX * sigma_toa_full;
@@ -708,10 +776,20 @@ Type objective_function<Type>::operator() ()
 
 	//sigma_b0_ss, this is not extentable, so just declare it as a scalar
 	PARAMETER(sigma_b0_ss);
+
+	for(int i = 0; i < (par_n_col(15, 0) + par_n_col(15, 1)); i++){
+		if(sigma_b0_ss(i) < sigma_b0_ss_bound(0, i) || sigma_b0_ss(i) > sigma_b0_ss_bound(1, i)) nll += Inf;
+	}
+
 	if(incheck_scalar(16, param_og) == 1) ADREPORT(sigma_b0_ss);
   
 	//settle with "D" as it will be used regardless type of model
 	PARAMETER_VECTOR(D);
+
+	for(int i = 0; i < (par_n_col(16, 0) + par_n_col(16, 1)); i++){
+		if(D(i) < D_bound(0, i) || D(i) > D_bound(1, i)) nll += Inf;
+	}
+
 	ADREPORT(D);
   
 	vector<Type> D_full = D.head(par_n_col(16, 0));
@@ -727,9 +805,6 @@ Type objective_function<Type>::operator() ()
   
 	//finally declare the latent variable "u"
 	PARAMETER_VECTOR(u);
-
-	//begin the calculation of nll
-	Type nll = Type(0.0);
 	
 	//declare variables for all backtransformed parameters 
 	Type g0_tem;
@@ -786,6 +861,9 @@ Type objective_function<Type>::operator() ()
 				n_IDs_for_datafull, n_traps, 0);
 			D_tem = D_vec_full[index_data_full_D] + D_vec_mask[index_data_mask];
 			D_tem = trans(D_tem, par_link(16));
+
+			//if(D_tem < D_bound(0, 0) || D_tem > D_bound(1, 0)) nll += Inf;			
+
 			p_dot(m - 1) = Type(1.0);
 
 			for(int t = 1; t <= n_t; t++){
@@ -803,6 +881,9 @@ Type objective_function<Type>::operator() ()
 					sigma_tem = sigma_vec_full(index_data_full) + sigma_vec_mask(index_data_mask);
 					sigma_tem = trans(sigma_tem, par_link(1));
 
+					//if(g0_tem < g0_bound(0, 0) || g0_tem > g0_bound(1, 0)) nll += Inf;
+					//if(sigma_tem < sigma_bound(0, 0) || sigma_tem > sigma_bound(1, 0)) nll += Inf;
+
 					detfn_param(0) = g0_tem;
 					detfn_param(1) = sigma_tem;
 
@@ -811,6 +892,9 @@ Type objective_function<Type>::operator() ()
 					lambda0_tem = trans(lambda0_tem, par_link(2));
 					sigma_tem = sigma_vec_full(index_data_full) + sigma_vec_mask(index_data_mask);
 					sigma_tem = trans(sigma_tem, par_link(1));
+					
+					//if(lambda0_tem < lambda0_bound(0, 0) || lambda0_tem > lambda0_bound(1, 0)) nll += Inf;
+					//if(sigma_tem < sigma_bound(0, 0) || sigma_tem > sigma_bound(1, 0)) nll += Inf;
 
 					detfn_param(0) = lambda0_tem;
 					detfn_param(1) = sigma_tem;
@@ -822,6 +906,10 @@ Type objective_function<Type>::operator() ()
 					sigma_tem = trans(sigma_tem, par_link(1));
 					z_tem = z_vec_full(index_data_full) + z_vec_mask(index_data_mask);
 					z_tem = trans(z_tem, par_link(3));
+
+					//if(g0_tem < g0_bound(0, 0) || g0_tem > g0_bound(1, 0)) nll += Inf;
+					//if(sigma_tem < sigma_bound(0, 0) || sigma_tem > sigma_bound(1, 0)) nll += Inf;
+					//if(z_tem < z_bound(0, 0) || z_tem > z_bound(1, 0)) nll += Inf;
 
 					detfn_param(0) = g0_tem;
 					detfn_param(1) = sigma_tem;	
@@ -835,6 +923,10 @@ Type objective_function<Type>::operator() ()
 					scale_tem = scale_vec_full(index_data_full) + scale_vec_mask(index_data_mask);
 					scale_tem = trans(scale_tem, par_link(7));
 
+					//if(shape_1_tem < shape_1_bound(0, 0) || shape_1_tem > shape_1_bound(1, 0)) nll += Inf;
+					//if(shape_2_tem < shape_2_bound(0, 0) || shape_2_tem > shape_2_bound(1, 0)) nll += Inf;
+					//if(scale_tem < scale_bound(0, 0) || scale_tem > scale_bound(1, 0)) nll += Inf;
+
 					detfn_param(0) = shape_1_tem;
 					detfn_param(1) = shape_2_tem;	
 					detfn_param(2) = scale_tem;
@@ -845,6 +937,9 @@ Type objective_function<Type>::operator() ()
 					scale_tem = scale_vec_full(index_data_full) + scale_vec_mask(index_data_mask);
 					scale_tem = trans(scale_tem, par_link(7));
 
+					//if(shape_tem < shape_bound(0, 0) || shape_tem > shape_bound(1, 0)) nll += Inf;
+					//if(scale_tem < scale_bound(0, 0) || scale_tem > scale_bound(1, 0)) nll += Inf;
+
 					detfn_param(0) = shape_tem;
 					detfn_param(1) = scale_tem;	
 				} else if(detfn_index == 6){
@@ -852,6 +947,9 @@ Type objective_function<Type>::operator() ()
 					b0_ss_tem = trans(b0_ss_tem, par_link(8));
 					b1_ss_tem = b1_ss_vec_full(index_data_full) + b1_ss_vec_mask(index_data_mask);
 					b1_ss_tem = trans(b1_ss_tem, par_link(9));
+
+					//if(b0_ss_tem < b0_ss_bound(0, 0) || b0_ss_tem > b0_ss_bound(1, 0)) nll += Inf;
+					//if(b1_ss_tem < b1_ss_bound(0, 0) || b1_ss_tem > b1_ss_bound(1, 0)) nll += Inf;
 
 					detfn_param(0) = b0_ss_tem;
 					detfn_param(1) = b1_ss_tem;
@@ -864,6 +962,9 @@ Type objective_function<Type>::operator() ()
 					b2_ss_tem = b2_ss_vec_full(index_data_full) + b2_ss_vec_mask(index_data_mask);
 					b2_ss_tem = trans(b2_ss_tem, par_link(10));
 
+					//if(b0_ss_tem < b0_ss_bound(0, 0) || b0_ss_tem > b0_ss_bound(1, 0)) nll += Inf;
+					//if(b1_ss_tem < b1_ss_bound(0, 0) || b1_ss_tem > b1_ss_bound(1, 0)) nll += Inf;
+					//if(b2_ss_tem < b2_ss_bound(0, 0) || b2_ss_tem > b2_ss_bound(1, 0)) nll += Inf;
 
 					detfn_param(0) = b0_ss_tem;
 					detfn_param(1) = b1_ss_tem;
@@ -872,11 +973,17 @@ Type objective_function<Type>::operator() ()
 
 				} 
 				//het is detfn_index == 8, not sure how to do it yet
+
+
+
 				if(is_ss == 0){
 					p_k(m - 1, t - 1) = (*detfn)(dx(index_data_dist_theta), detfn_param);
 				} else if (is_ss_origin == 1){
 					sigma_ss_tem = sigma_ss_vec_full(index_data_full) + sigma_ss_vec_mask(index_data_mask);
 					sigma_ss_tem = trans(sigma_ss_tem, par_link(11));
+
+					//if(sigma_ss_tem < sigma_ss_bound(0, 0) || sigma_ss_tem > sigma_ss_bound(1, 0)) nll += Inf;
+
 					mu(index_data_dist_theta) = (*detfn)(dx(index_data_dist_theta), detfn_param);
 					p_k(m - 1, t - 1) = 1 - pnorm((cutoff - mu(index_data_dist_theta)) / sigma_ss_tem);
 					std::cout << "b0_ss: " << b0_ss_tem << std::endl;
@@ -961,6 +1068,9 @@ Type objective_function<Type>::operator() ()
 						Type sigma_toa_tem = sigma_toa_vec_full(index_data_full_D) + 
 							sigma_toa_vec_mask(index_data_mask);
 						sigma_toa_tem = trans(sigma_toa_tem, par_link(14));
+
+						//if(sigma_toa_tem < sigma_toa_bound(0, 0) || sigma_toa_tem > sigma_toa_bound(1, 0)) nll += Inf;
+
 						Type toa_ssq_tem = toa_ssq(index_data_IDmask);
 						fy_toa *= pow(sigma_toa_tem, (1 - Z_i) * 0.5) * 
 							exp((-0.5) * toa_ssq_tem / sigma_toa_tem);
@@ -974,6 +1084,9 @@ Type objective_function<Type>::operator() ()
 							int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
 							Type kappa_tem = kappa_vec_full(index_data_full) + kappa_vec_mask(index_data_mask);
 							kappa_tem = trans(kappa_tem, par_link(12));
+
+							//if(kappa_tem < kappa_bound(0, 0) || kappa_tem > kappa_bound(1, 0)) nll += Inf;
+
 							fy_bear *= exp(kappa_tem * cos(capt_bearing(index_data_full) - 
 								theta(index_data_dist_theta))) / besselI(kappa_tem, Type(0));
 							fy_bear = pow(fy_bear, capt_bin(index_data_full));
@@ -989,6 +1102,9 @@ Type objective_function<Type>::operator() ()
 							int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
 							Type alpha_tem = alpha_vec_full(index_data_full) + alpha_vec_mask(index_data_mask);
 							alpha_tem = trans(alpha_tem, par_link(13));
+
+							//if(alpha_tem < alpha_bound(0, 0) || alpha_tem > alpha_bound(1, 0)) nll += Inf;
+
 							fy_dist *=  pow(pow(dx(index_data_dist_theta) / alpha_tem, alpha_tem) * exp(lgamma(alpha_tem)), (-1)) *
 								pow(capt_dist(index_data_full), (alpha_tem - 1)) * 
 								exp(-1 * alpha_tem * capt_dist(index_data_full) / dx(index_data_dist_theta));
@@ -1004,6 +1120,9 @@ Type objective_function<Type>::operator() ()
 							int index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
 							sigma_ss_tem = sigma_ss_vec_full(index_data_full) + sigma_ss_vec_mask(index_data_mask);
 							sigma_ss_tem = trans(sigma_ss_tem, par_link(11));
+
+							//if(sigma_ss_tem < sigma_ss_bound(0, 0) || sigma_ss_tem > sigma_ss_bound(1, 0)) nll += Inf;
+
 							Type mu_tem = mu(index_data_dist_theta);
 							fy_ss *= dnorm(capt_ss(index_data_full), mu_tem, sigma_ss_tem);
 							fy_ss = pow(fy_ss, capt_bin(index_data_full));
