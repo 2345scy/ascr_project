@@ -592,9 +592,17 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
       param_distribution[[i]] = c(n_col_full, n_col_mask)
     }
     
+    var.ex.col.index = which(colnames(data.par.non.mask) %in% var.ex)
+    if(length(var.ex.col.index) > 0){
+      data.par.non.mask = data.par.non.mask[, -var.ex.col.index, drop = FALSE]
+    }
     
-    data.par.non.mask = data.par.non.mask[, -which(colnames(data.par.non.mask) %in% var.ex)]
-    data.par.mask = data.par.mask[, -which(colnames(data.par.mask) %in% var.ex)]
+    var.ex.col.index = which(colnames(data.par.mask) %in% var.ex)
+    if(length(var.ex.col.index) > 0){
+      data.par.mask = data.par.mask[, -var.ex.col.index, drop = FALSE]
+    }
+    
+    
     data.full = merge(data.full, data.par.non.mask, by = c('session',
                                                            'trap'[!is.null(data.par.non.mask[['trap']])],
                                                            'animal_ID'[!is.null(data.par.non.mask[['animal_ID']])],

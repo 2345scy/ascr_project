@@ -163,6 +163,27 @@ test_data = function(model_type){
     fix_list <<- NULL
     local_input <<- FALSE
     sound.speed <<- 331
+  } else if (model_type == "Inhomogeneous density estimation"){
+    captures <<- data.frame(session = rep(1, 127 * 6), ID = rep(1:127, 6), occasion = rep(1, 127 * 6),
+                            trap = rep(1:6, each = 127), stringsAsFactors = FALSE)
+    captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
+    
+    traps <<- example.data$traps
+    masks <<- example.data$mask
+    
+    df <- data.frame(x1 = example.data$mask[, 1]/1000, y1 = example.data$mask[, 2]/1000)
+    
+    par.extend <<- list(data = list(mask = df), model = list(D = ~x1+y1))
+    ss.opts <<- NULL
+    survey.length <<- NULL
+    cue.rates <<- NULL
+    detfn <<- NULL
+    bounds <<- NULL
+    sv_list <<- NULL
+    fix_list <<- list(g0 = 1)
+    local_input <<- FALSE
+    sound.speed <<- 331
+    
   }
 
 }

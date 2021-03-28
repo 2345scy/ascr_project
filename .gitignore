@@ -5,3 +5,6 @@ fit_ascr.dll
 fit_ascr.o
 *.o
 fit_ascr.o
+*.dll
+*.o
+*.o

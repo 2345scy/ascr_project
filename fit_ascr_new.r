@@ -19,9 +19,10 @@ source('test_data_preparation.r')
 #joint bearing/dist fitting
 #ss fitting
 #joint ss/toa fitting
-test_data("ss fitting")
+#Inhomogeneous density estimation
+test_data("Inhomogeneous density estimation")
 
-sv_list = NULL
+
 
 capt_input = create.capt(captures, traps = traps)
 
@@ -135,7 +136,9 @@ if(is.null(ss.opts)){
 library(TMB)
 library(MASS)
 
-
+#dist is a little special because it could appear in log(capt_dist) in the likelihood
+#capt_dist = ifelse(is.na(data.full$dist), 0, data.full$dist)
+#capt_dist = ifelse(capt_dist == 0, 1e-20, capt_dist)
 
 data <- list(n_sessions = dims$n.sessions,
              n_animals = dims$n.animals,
@@ -260,17 +263,26 @@ for(i in 1:length(name.fixed.par.4cpp)){
 }
 
 
-compile("fit_ascr.cpp")
-dyn.load(dynlib("fit_ascr"))
+compile("fit_ascr_TypeIII.cpp")
+dyn.load(dynlib("fit_ascr_TypeIII"))
 
-if(!("ss.het" %in% bucket_info)){
-  obj <- MakeADFun(data = data, parameters = parameters, map = map, DLL="fit_ascr")
-} else {
-  obj <- MakeADFun(data = data, parameters = parameters, random = "u", map = map, DLL="fit_ascr")
-}
+system.time({
+  if(!("ss.het" %in% bucket_info)){
+    obj <- MakeADFun(data = data, parameters = parameters, map = map, DLL="fit_ascr_TypeIII")
+  } else {
+    obj <- MakeADFun(data = data, parameters = parameters, random = "u", map = map, DLL="fit_ascr_TypeIII")
+  }
+})
 
-obj$hessian <- TRUE
-opt = nlminb(obj$par, obj$fn, obj$gr)
-o = sdreport(obj)
+system.time({
+  obj$hessian <- TRUE
+  opt = nlminb(obj$par, obj$fn, obj$gr)
+})
+
+system.time({
+  o = sdreport(obj)
+})
+
 summary(o, "report")
 opt$objective
+
