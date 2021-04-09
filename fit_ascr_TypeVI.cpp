@@ -1,14 +1,8 @@
 #include <TMB.hpp>
-template<class Type>
-vector<Type> extractsubvector(vector<Type> v, int a, int b){
-  int sublength = b - a + 1;
-  vector<Type> subv(sublength);
-  for(int m = 0; m < sublength; m++) subv[m] = v[a + m];
-  return subv;
-}
 
 
-vector<int> incheck(vector<int> a, vector<int> b){
+
+vector<int> incheck(const vector<int> &a, const vector<int> &b){
   int lengtha = a.size();
   int lengthb = b.size();
   vector<int> ans(lengtha);
@@ -24,7 +18,7 @@ vector<int> incheck(vector<int> a, vector<int> b){
   return ans;
 }
 
-int incheck_scalar(int a, vector<int> b){
+int incheck_scalar(const int &a, const vector<int> &b){
   int lengthb = b.size();
   int ans = 0;
   for(int i = 0; i < lengthb; i++){
@@ -37,7 +31,7 @@ int incheck_scalar(int a, vector<int> b){
 }
 
 template<class Type>
-vector<Type> isNA(vector<Type> x){
+vector<Type> isNA(const vector<Type> &x){
   int len = x.size();
   vector<Type> ans(len);
   for(int i = 0; i < len; i++){
@@ -50,13 +44,27 @@ vector<Type> isNA(vector<Type> x){
   return ans;
 }
 
+template<class Type>
+void trans(Type *x, const int &link){
 
+  if(link == 2){
+    *x = exp(*x);
+  }
+  if(link == 3){
+    *x = exp(*x)/(1 + exp(*x));
+  }
+  
+}
+
+
+
+//look up series functions------------------------------------------------------------------
 
 
 //here n_i is n_IDs_for_datafull
-int lookup_data_full(int is_ani, int s, int a, int i, int t,
-                     vector<int> n_a, vector<int> n_i,
-                     vector<int> n_t, vector<int> n_i_each_a){
+int lookup_data_full(const int &is_ani, const int &s, const int &a, const int &i, const int &t,
+                     const vector<int> &n_a, const vector<int> &n_i,
+                     const vector<int> &n_t, const vector<int> &n_i_each_a){
   int ans = 0;
   if(is_ani == 1){
     ans = -1;
@@ -74,8 +82,8 @@ int lookup_data_full(int is_ani, int s, int a, int i, int t,
 }
 
 
-int lookup_data_dist_theta(int s, int t, int m,
-                           vector<int> n_t, vector<int> n_m){
+int lookup_data_dist_theta(const int &s, const int &t, const int &m,
+                           const vector<int> &n_t, const vector<int> &n_m){
   int ans = 0;
   if(s > 1){
     for(int s_index = 1; s_index < s; s_index++){
@@ -88,7 +96,7 @@ int lookup_data_dist_theta(int s, int t, int m,
 }
 
 
-int lookup_data_mask(int s, int m, vector<int> n_m){
+int lookup_data_mask(const int &s, const int &m, const vector<int> &n_m){
   int ans = 0;
   if(s > 1){
     for(int s_index = 1; s_index < s; s_index++){
@@ -102,9 +110,9 @@ int lookup_data_mask(int s, int m, vector<int> n_m){
 
 //here n_i is n_IDs
 
-int lookup_data_IDmask(int is_ani, int s, int a, int i, int m,
-                       vector<int> n_a, vector<int> n_i, 
-                       vector<int> n_i_each_a, vector<int> n_m){
+int lookup_data_IDmask(const int &is_ani, const int &s, const int &a, const int &i, const int &m,
+                       const vector<int> &n_a, const vector<int> &n_i, 
+                       const vector<int> &n_i_each_a, const vector<int> &n_m){
   int ans = 0;
   if(is_ani == 1){
     ans = -1;
@@ -121,9 +129,24 @@ int lookup_data_IDmask(int is_ani, int s, int a, int i, int m,
   return ans;
 }
 
+int lookup_bincapt_uid(const int &s, const int &uid, const int &t, const vector<int> &n_uid_session, 
+	const vector<int> &n_t){
+	
+	int ans = 0;
+	if(s > 1){
+		for(int s_index = 1; s_index < s; s_index++){
+			ans = ans + n_uid_session(s_index - 1) * n_t(s_index - 1);
+		}
+	}
+
+	ans = ans + (uid - 1) * n_t(s - 1) + t - 1;
+
+	return ans;
+}
+
 //here n_i is n_IDs as well
-int lookup_n_detection(int is_ani, int s, int a, int i, vector<int> n_a,
-                       vector<int> n_i, vector<int> n_i_each_a){
+int lookup_n_detection(const int &is_ani, const int &s, const int &a, const int &i, const vector<int> &n_a,
+                       const vector<int> &n_i, const vector<int> &n_i_each_a){
   int ans = 0;
   if(is_ani == 1){
     ans = -1;
@@ -141,7 +164,35 @@ int lookup_n_detection(int is_ani, int s, int a, int i, vector<int> n_a,
 }
 
 
-int look_up_u(int s, int i, vector<int> n_i){
+int lookup_n_detection_uid(const int &s, const int &uid, const vector<int> &n_uid_session){
+  	int ans = 0;
+
+	if(s > 1){
+		for(int s_index = 1; s_index < s; s_index++){
+		ans = ans + n_uid_session(s_index - 1);
+		}
+	}
+
+	ans = ans + uid - 1;
+  
+  	return ans;
+}
+
+int look_up_u(const int &s, const int &i, const vector<int> &n_i){
+	int ans = 0;
+	if(s > 1){
+		for(int s_index = 1; s_index < s; s_index++){
+			ans += n_i(s_index - 1);
+		}
+	}
+
+	ans += i - 1;
+	return ans;
+}
+
+//this is the function to look up the uid based on session and id from "u_id_match"
+//this is the same with look_up_u, but to make it easy to understand
+int look_up_uid(const int &s, const int &i, const vector<int> &n_i){
 	int ans = 0;
 	if(s > 1){
 		for(int s_index = 1; s_index < s; s_index++){
@@ -155,28 +206,15 @@ int look_up_u(int s, int i, vector<int> n_i){
 
 
 
-template<class Type>
-Type trans(Type x, int link){
-  Type ans = 0.0;
-  if(link == 1) {
-    ans = x;
-  }
-  if(link == 2){
-    ans = exp(x);
-  }
-  if(link == 3){
-    ans = exp(x)/(1 + exp(x));
-  }
-  
-  return ans;
-  
-}
+//end of look up functions-------------------------------------------------------------
 
-//detect functions
+
+
+//detect functions---------------------------------------------------------------------
 
 //hn
 template<class Type>
-Type det_hn(Type dx, vector<Type> param){
+Type det_hn(const Type &dx, const vector<Type> &param){
   Type ans = 0.0;
   Type g0 = param(0);
   Type sigma = param(1);
@@ -186,7 +224,7 @@ Type det_hn(Type dx, vector<Type> param){
 
 //hhn
 template<class Type>
-Type det_hhn(Type dx, vector<Type> param){
+Type det_hhn(const Type &dx, const vector<Type> &param){
 	Type ans = 0.0;
 	Type lambda0 = param(0);
 	Type sigma = param(1);
@@ -197,7 +235,7 @@ Type det_hhn(Type dx, vector<Type> param){
 
 //hr
 template<class Type>
-Type det_hr(Type dx, vector<Type> param){
+Type det_hr(const Type &dx, const vector<Type> &param){
 	Type ans = 0.0;
 	Type g0 = param(0);
   	Type sigma = param(1);
@@ -208,7 +246,7 @@ Type det_hr(Type dx, vector<Type> param){
 
 //lth
 template<class Type>
-Type det_lth(Type dx, vector<Type> param){
+Type det_lth(const Type &dx, const vector<Type> &param){
 	Type ans = 0.0;
 	Type shape_1 = param(0);
 	Type shape_2 = param(1);
@@ -219,7 +257,7 @@ Type det_lth(Type dx, vector<Type> param){
 
 //th
 template<class Type>
-Type det_th(Type dx, vector<Type> param){
+Type det_th(const Type &dx, const vector<Type> &param){
 	Type ans = 0.0;
 	Type shape = param(0);
 	Type scale = param(1);
@@ -232,7 +270,7 @@ Type det_th(Type dx, vector<Type> param){
 //the same input, but output is back-transformed mu
 //instead of the probability be detected
 template<class Type>
-Type mu_ss_identical(Type dx, vector<Type> param){
+Type mu_ss_identical(const Type &dx, const vector<Type> &param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
 	Type mu = b0_ss - b1_ss * dx;
@@ -240,7 +278,7 @@ Type mu_ss_identical(Type dx, vector<Type> param){
 }
 
 template<class Type>
-Type mu_ss_log(Type dx, vector<Type> param){
+Type mu_ss_log(const Type &dx, const vector<Type> &param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
 	Type mu = exp(b0_ss - b1_ss * dx);
@@ -248,7 +286,7 @@ Type mu_ss_log(Type dx, vector<Type> param){
 }
 
 template<class Type>
-Type mu_ss_spherical(Type dx, vector<Type> param){
+Type mu_ss_spherical(const Type &dx, const vector<Type> &param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
 	Type mu = 0.0;
@@ -262,7 +300,7 @@ Type mu_ss_spherical(Type dx, vector<Type> param){
 
 //ss_dir
 template<class Type>
-Type mu_ss_dir_identical(Type dx, vector<Type> param){
+Type mu_ss_dir_identical(const Type &dx, const vector<Type> &param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
 	Type b2_ss = param(2);
@@ -272,7 +310,7 @@ Type mu_ss_dir_identical(Type dx, vector<Type> param){
 }
 
 template<class Type>
-Type mu_ss_dir_log(Type dx, vector<Type> param){
+Type mu_ss_dir_log(const Type &dx, const vector<Type> &param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
 	Type b2_ss = param(2);
@@ -282,7 +320,7 @@ Type mu_ss_dir_log(Type dx, vector<Type> param){
 }
 
 template<class Type>
-Type mu_ss_dir_spherical(Type dx, vector<Type> param){
+Type mu_ss_dir_spherical(const Type &dx, const vector<Type> &param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
 	Type b2_ss = param(2);
@@ -298,7 +336,7 @@ Type mu_ss_dir_spherical(Type dx, vector<Type> param){
 
 //ss_het
 template<class Type>
-Type mu_ss_het(Type dx, vector<Type> param){
+Type mu_ss_het(const Type &dx, const vector<Type> &param){
 	Type b0_ss = param(0);
 	Type b1_ss = param(1);
 	Type u = param(2);
@@ -306,11 +344,15 @@ Type mu_ss_het(Type dx, vector<Type> param){
 	return mu;
 }
 
+//end of detection functions------------------------------------------------------------------------
+
 template<class Type>
 Type objective_function<Type>::operator() ()
 {
 	Type nll = Type(0.0);
+	Type *pointer_nll = &nll;
 	Type Inf = std::numeric_limits<double>::infinity();
+	Type *pointer_Inf = &Inf;
 	
 	
 	DATA_INTEGER(n_sessions);
@@ -320,7 +362,11 @@ Type objective_function<Type>::operator() ()
 	DATA_IVECTOR(n_traps);
 	DATA_IVECTOR(n_masks);
 	DATA_IVECTOR(n_detection);
+	DATA_IVECTOR(n_detection_uid);
 	DATA_IVECTOR(n_calls_each_animal);
+	DATA_IVECTOR(n_uid_session);
+	DATA_IVECTOR(n_ids_each_uid);
+	DATA_IVECTOR(index_traps_uid);
 
 
 	DATA_INTEGER(nrow_data_full);
@@ -359,7 +405,9 @@ Type objective_function<Type>::operator() ()
 	DATA_INTEGER(is_local);
 	DATA_INTEGER(is_freqs);
   
-  
+	DATA_IVECTOR(u_id_match);
+	DATA_VECTOR(capt_bin_uid);
+
 	DATA_VECTOR(capt_bin);
 	DATA_VECTOR(capt_bearing);
 	DATA_VECTOR(capt_dist);
@@ -433,7 +481,7 @@ Type objective_function<Type>::operator() ()
 	//based on our input "detfn_index"
 	//and also point out the number of parameters for that detfn
 
-	Type (*detfn)(Type, vector<Type>);
+	Type (*detfn)(const Type &dx, const vector<Type> &param);
 	int n_detfn_param;
 	if(detfn_index == 1){
 		detfn = det_hn;
@@ -491,7 +539,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(g0);
 
 	for(int i = 0; i < (par_n_col(0, 0) + par_n_col(0, 1)); i++){
-		if(g0(i) < g0_bound(0, i) || g0(i) > g0_bound(1, i)) nll += Inf; //infinity is Inf or INFINITY?
+		if(g0(i) < g0_bound(0, i) || g0(i) > g0_bound(1, i)) *pointer_nll += *pointer_Inf; //infinity is Inf or INFINITY?
 	}
 
 	vector<Type> g0_full = g0.head(par_n_col(0, 0));
@@ -510,7 +558,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(sigma);
 
 	for(int i = 0; i < (par_n_col(1, 0) + par_n_col(1, 1)); i++){
-		if(sigma(i) < sigma_bound(0, i) || sigma(i) > sigma_bound(1, i)) nll += Inf;
+		if(sigma(i) < sigma_bound(0, i) || sigma(i) > sigma_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> sigma_full = sigma.head(par_n_col(1, 0));
@@ -529,7 +577,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(lambda0);
 
 	for(int i = 0; i < (par_n_col(2, 0) + par_n_col(2, 1)); i++){
-		if(lambda0(i) < lambda0_bound(0, i) || lambda0(i) > lambda0_bound(1, i)) nll += Inf;
+		if(lambda0(i) < lambda0_bound(0, i) || lambda0(i) > lambda0_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> lambda0_full = lambda0.head(par_n_col(2, 0));
@@ -548,7 +596,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(z);
 
 	for(int i = 0; i < (par_n_col(3, 0) + par_n_col(3, 1)); i++){
-		if(z(i) < z_bound(0, i) || z(i) > z_bound(1, i)) nll += Inf;
+		if(z(i) < z_bound(0, i) || z(i) > z_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 
@@ -568,7 +616,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(shape_1);
 
 	for(int i = 0; i < (par_n_col(4, 0) + par_n_col(4, 1)); i++){
-		if(shape_1(i) < shape_1_bound(0, i) || shape_1(i) > shape_1_bound(1, i)) nll += Inf;
+		if(shape_1(i) < shape_1_bound(0, i) || shape_1(i) > shape_1_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> shape_1_full = shape_1.head(par_n_col(4, 0));
@@ -587,7 +635,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(shape_2);
 
 	for(int i = 0; i < (par_n_col(5, 0) + par_n_col(5, 1)); i++){
-		if(shape_2(i) < shape_2_bound(0, i) || shape_2(i) > shape_2_bound(1, i)) nll += Inf;
+		if(shape_2(i) < shape_2_bound(0, i) || shape_2(i) > shape_2_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> shape_2_full = shape_2.head(par_n_col(5, 0));
@@ -606,7 +654,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(shape);
 
 	for(int i = 0; i < (par_n_col(6, 0) + par_n_col(6, 1)); i++){
-		if(shape(i) < shape_bound(0, i) || shape(i) > shape_bound(1, i)) nll += Inf;
+		if(shape(i) < shape_bound(0, i) || shape(i) > shape_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> shape_full = shape.head(par_n_col(6, 0));
@@ -625,7 +673,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(scale);
 
 	for(int i = 0; i < (par_n_col(7, 0) + par_n_col(7, 1)); i++){
-		if(scale(i) < scale_bound(0, i) || scale(i) > scale_bound(1, i)) nll += Inf;
+		if(scale(i) < scale_bound(0, i) || scale(i) > scale_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> scale_full = scale.head(par_n_col(7, 0));
@@ -644,7 +692,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(b0_ss);
 
 	for(int i = 0; i < (par_n_col(8, 0) + par_n_col(8, 1)); i++){
-		if(b0_ss(i) < b0_ss_bound(0, i) || b0_ss(i) > b0_ss_bound(1, i)) nll += Inf;
+		if(b0_ss(i) < b0_ss_bound(0, i) || b0_ss(i) > b0_ss_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> b0_ss_full = b0_ss.head(par_n_col(8, 0));
@@ -663,7 +711,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(b1_ss);
 
 	for(int i = 0; i < (par_n_col(9, 0) + par_n_col(9, 1)); i++){
-		if(b1_ss(i) < b1_ss_bound(0, i) || b1_ss(i) > b1_ss_bound(1, i)) nll += Inf;
+		if(b1_ss(i) < b1_ss_bound(0, i) || b1_ss(i) > b1_ss_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> b1_ss_full = b1_ss.head(par_n_col(9, 0));
@@ -682,7 +730,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(b2_ss);
 
 	for(int i = 0; i < (par_n_col(10, 0) + par_n_col(10, 1)); i++){
-		if(b2_ss(i) < b2_ss_bound(0, i) || b2_ss(i) > b2_ss_bound(1, i)) nll += Inf;
+		if(b2_ss(i) < b2_ss_bound(0, i) || b2_ss(i) > b2_ss_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> b2_ss_full = b2_ss.head(par_n_col(10, 0));
@@ -702,7 +750,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(sigma_ss);
 
 	for(int i = 0; i < (par_n_col(11, 0) + par_n_col(11, 1)); i++){
-		if(sigma_ss(i) < sigma_ss_bound(0, i) || sigma_ss(i) > sigma_ss_bound(1, i)) nll += Inf;
+		if(sigma_ss(i) < sigma_ss_bound(0, i) || sigma_ss(i) > sigma_ss_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> sigma_ss_full = sigma_ss.head(par_n_col(11, 0));
@@ -721,7 +769,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(kappa);
 
 	for(int i = 0; i < (par_n_col(12, 0) + par_n_col(12, 1)); i++){
-		if(kappa(i) < kappa_bound(0, i) || kappa(i) > kappa_bound(1, i)) nll += Inf;
+		if(kappa(i) < kappa_bound(0, i) || kappa(i) > kappa_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 
@@ -741,7 +789,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(alpha);
 
 	for(int i = 0; i < (par_n_col(13, 0) + par_n_col(13, 1)); i++){
-		if(alpha(i) < alpha_bound(0, i) || alpha(i) > alpha_bound(1, i)) nll += Inf;
+		if(alpha(i) < alpha_bound(0, i) || alpha(i) > alpha_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 
@@ -761,7 +809,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(sigma_toa);
 
 	for(int i = 0; i < (par_n_col(14, 0) + par_n_col(14, 1)); i++){
-		if(sigma_toa(i) < sigma_toa_bound(0, i) || sigma_toa(i) > sigma_toa_bound(1, i)) nll += Inf;
+		if(sigma_toa(i) < sigma_toa_bound(0, i) || sigma_toa(i) > sigma_toa_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	vector<Type> sigma_toa_full = sigma_toa.head(par_n_col(14, 0));
@@ -779,7 +827,7 @@ Type objective_function<Type>::operator() ()
 	//sigma_b0_ss, this is not extentable, so just declare it as a scalar
 	PARAMETER(sigma_b0_ss);
 
-	if(sigma_b0_ss < sigma_b0_ss_bound(0, 0) || sigma_b0_ss > sigma_b0_ss_bound(1, 0)) nll += Inf;
+	if(sigma_b0_ss < sigma_b0_ss_bound(0, 0) || sigma_b0_ss > sigma_b0_ss_bound(1, 0)) *pointer_nll += *pointer_Inf;
 
 
 	if(incheck_scalar(16, param_og) == 1) ADREPORT(sigma_b0_ss);
@@ -788,7 +836,7 @@ Type objective_function<Type>::operator() ()
 	PARAMETER_VECTOR(D);
 
 	for(int i = 0; i < (par_n_col(16, 0) + par_n_col(16, 1)); i++){
-		if(D(i) < D_bound(0, i) || D(i) > D_bound(1, i)) nll += Inf;
+		if(D(i) < D_bound(0, i) || D(i) > D_bound(1, i)) *pointer_nll += *pointer_Inf;
 	}
 
 	ADREPORT(D);
@@ -826,6 +874,24 @@ Type objective_function<Type>::operator() ()
 	Type sigma_b0_ss_tem;
 	Type D_tem;
 
+	Type *p_g0_tem = &g0_tem;
+	Type *p_sigma_tem = &sigma_tem;
+	Type *p_lambda0_tem = &lambda0_tem;
+	Type *p_z_tem = &z_tem;
+	Type *p_shape_1_tem = &shape_1_tem;
+	Type *p_shape_2_tem = &shape_2_tem;
+	Type *p_shape_tem = &shape_tem;
+	Type *p_scale_tem = &scale_tem;
+	Type *p_b0_ss_tem = &b0_ss_tem;
+	Type *p_b1_ss_tem = &b1_ss_tem;
+	Type *p_b2_ss_tem = &b2_ss_tem;
+	Type *p_sigma_ss_tem = &sigma_ss_tem;
+	Type *p_kappa_tem = &kappa_tem;
+	Type *p_alpha_tem = &alpha_tem;
+	Type *p_sigma_toa_tem = &sigma_toa_tem;
+	Type *p_sigma_b0_ss_tem = &sigma_b0_ss_tem;
+	Type *p_D_tem = &D_tem;
+
 	//mu = E(ss|x), since it is "session-mask-trap"
 	//level data, use data_dist_theta's index
 	vector<Type> mu(nrow_dx);
@@ -836,6 +902,7 @@ Type objective_function<Type>::operator() ()
 	int index_data_full;
 	int index_data_dist_theta;
 	int index_data_IDmask;
+	int index_zi;
 	int s;
 	int m;
 	int t;
@@ -844,13 +911,58 @@ Type objective_function<Type>::operator() ()
 	int n_i;
 	int n_t;
 
+	//essentially this is "Type *pointer_g0_vec_full;" below are the same
+	Type *p_g0_full;
+	Type *p_g0_mask;
+	Type *p_sigma_full;
+	Type *p_sigma_mask;
+	Type *p_lambda0_full;
+	Type *p_lambda0_mask;
+	Type *p_z_full;
+	Type *p_z_mask;
+	Type *p_shape_1_full;
+	Type *p_shape_1_mask;
+	Type *p_shape_2_full;
+	Type *p_shape_2_mask;
+	Type *p_shape_full;
+	Type *p_shape_mask;
+	Type *p_scale_full;
+	Type *p_scale_mask;
+	Type *p_b0_ss_full;
+	Type *p_b0_ss_mask;
+	Type *p_b1_ss_full;
+	Type *p_b1_ss_mask;
+	Type *p_b2_ss_full;
+	Type *p_b2_ss_mask;
+	Type *p_sigma_ss_full;
+	Type *p_sigma_ss_mask;
+	Type *p_kappa_full;
+	Type *p_kappa_mask;
+	Type *p_alpha_full;
+	Type *p_alpha_mask;
+	Type *p_sigma_toa_full;
+	Type *p_sigma_toa_mask;
+	Type *p_D_full;
+	Type *p_D_mask;
+
+	Type *p_dx;
+	Type *p_theta;
+	Type *p_mu;
+	Type *p_capt_bin;
+	Type *p_capt_bearing;
+	Type *p_capt_dist;
+	Type *p_capt_ss;
+	Type *p_capt_toa;
+	Type *p_toa_ssq;
+
+
 	Type area_unit;
 	Type lambda_theta;
 	Type Z_i;
 	Type l_i;
 	Type fx;
 	Type fw;
-	Type fy;
+
 	
 	Type fy_toa_log;
 	Type fy_bear_log;
@@ -879,146 +991,231 @@ Type objective_function<Type>::operator() ()
 		//row index of p_k is for mask, colnum index is for trap/detector
 		matrix<Type> p_k(n_m, n_t);
 
-		for(m = 1; m <= n_m; m++){
-			index_data_mask = lookup_data_mask(s, m, n_masks);
-			//"D" is special, not related to trap nor ID, so we set id = 1 and t = 1
-			index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1, 0, 
-				n_IDs_for_datafull, n_traps, 0);
-			D_tem = D_vec_full[index_data_full_D] + D_vec_mask[index_data_mask];
-			D_tem = trans(D_tem, par_link(16));
+		index_data_mask = lookup_data_mask(s, 1, n_masks);
 
-			//if(D_tem < D_bound(0, 0) || D_tem > D_bound(1, 0)) nll += Inf;			
+		//"D" is special, not related to trap nor ID, so we set id = 1 and t = 1
+		index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1, 0, 
+				n_IDs_for_datafull, n_traps, 0);
+
+		//the arguments in the function of "int a", "vector<int> n_a/n_i_each_a",
+		//are set to 0, and "int i" is set to 1 because currently we do not have
+		//"ID-level" parameter extension
+		index_data_full = lookup_data_full(is_animalID, s, 0, 1, 1,
+					0, n_IDs_for_datafull, n_traps, 0);
+
+		index_data_dist_theta = lookup_data_dist_theta(s, 1, 1, n_traps, n_masks);
+
+		p_D_full = &D_vec_full[index_data_full_D];
+		p_D_mask = &D_vec_mask[index_data_mask];
+
+		p_g0_mask = &g0_vec_mask[index_data_mask];
+
+		p_sigma_mask = &sigma_vec_mask[index_data_mask];
+
+		p_lambda0_mask = &lambda0_vec_mask[index_data_mask];
+
+		p_z_mask = &z_vec_mask[index_data_mask];
+
+		p_shape_1_mask = &shape_1_vec_mask[index_data_mask];
+
+		p_shape_2_mask = &shape_2_vec_mask[index_data_mask];
+
+		p_shape_mask = &shape_vec_mask[index_data_mask];
+
+		p_scale_mask = &scale_vec_mask[index_data_mask];
+
+		p_b0_ss_mask = &b0_ss_vec_mask[index_data_mask];
+
+		p_b1_ss_mask = &b1_ss_vec_mask[index_data_mask];
+
+		p_b2_ss_mask = &b2_ss_vec_mask[index_data_mask];
+
+		p_sigma_ss_mask = &sigma_ss_vec_mask[index_data_mask];
+
+		p_kappa_mask = &kappa_vec_mask[index_data_mask];
+
+		p_alpha_mask = &alpha_vec_mask[index_data_mask];
+
+		p_sigma_toa_mask = &sigma_toa_vec_mask[index_data_mask];
+
+		p_dx = &dx[index_data_dist_theta];
+		p_theta = &theta[index_data_dist_theta];
+		p_mu = &mu[index_data_dist_theta];
+
+		for(m = 1; m <= n_m; m++){
+			*p_D_tem = *p_D_full + *p_D_mask;
+			trans(p_D_tem, par_link(16));
+			p_D_mask++;
 
 			p_dot(m - 1) = Type(1.0);
 
+
+			p_g0_full = &g0_vec_full[index_data_full];
+
+			p_sigma_full = &sigma_vec_full[index_data_full];
+
+			p_lambda0_full = &lambda0_vec_full[index_data_full];
+
+			p_z_full = &z_vec_full[index_data_full];
+
+			p_shape_1_full = &shape_1_vec_full[index_data_full];
+
+			p_shape_2_full = &shape_2_vec_full[index_data_full];
+
+			p_shape_full = &shape_vec_full[index_data_full];
+
+			p_scale_full = &scale_vec_full[index_data_full];
+
+			p_b0_ss_full = &b0_ss_vec_full[index_data_full];
+
+			p_b1_ss_full = &b1_ss_vec_full[index_data_full];
+
+			p_b2_ss_full = &b2_ss_vec_full[index_data_full];
+
+			p_sigma_ss_full = &sigma_ss_vec_full[index_data_full];
+
+			p_kappa_full = &kappa_vec_full[index_data_full];
+
+			p_alpha_full = &alpha_vec_full[index_data_full];
+
+			p_sigma_toa_full = &sigma_toa_vec_full[index_data_full];
+
+
 			for(t = 1; t <= n_t; t++){
-				//the arguments in the function of "int a", "vector<int> n_a/n_i_each_a",
-				//are set to 0, and "int i" is set to 1 because currently we do not have
-				//"ID-level" parameter extension
-				index_data_full = lookup_data_full(is_animalID, s, 0, 1, t,
-					0, n_IDs_for_datafull, n_traps, 0);
-
-				index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
-				
+	
 				if(detfn_index == 1){
-					g0_tem = g0_vec_full(index_data_full) + g0_vec_mask(index_data_mask);
-					g0_tem = trans(g0_tem, par_link(0));
-					sigma_tem = sigma_vec_full(index_data_full) + sigma_vec_mask(index_data_mask);
-					sigma_tem = trans(sigma_tem, par_link(1));
+					*p_g0_tem = *p_g0_full + *p_g0_mask;
+					trans(p_g0_tem, par_link(0));
+					*p_sigma_tem = *p_sigma_full + *p_sigma_mask;
+					trans(p_sigma_tem, par_link(1));
 
-					//if(g0_tem < g0_bound(0, 0) || g0_tem > g0_bound(1, 0)) nll += Inf;
-					//if(sigma_tem < sigma_bound(0, 0) || sigma_tem > sigma_bound(1, 0)) nll += Inf;
+					p_g0_full++;
+					p_sigma_full++;
 
 					detfn_param(0) = g0_tem;
 					detfn_param(1) = sigma_tem;
 
 				} else if(detfn_index == 2){
-					lambda0_tem = lambda0_vec_full(index_data_full) + lambda0_vec_mask(index_data_mask);
-					lambda0_tem = trans(lambda0_tem, par_link(2));
-					sigma_tem = sigma_vec_full(index_data_full) + sigma_vec_mask(index_data_mask);
-					sigma_tem = trans(sigma_tem, par_link(1));
+					*p_lambda0_tem = *p_lambda0_full + *p_lambda0_mask;
+					trans(p_lambda0_tem, par_link(2));
+					*p_sigma_tem = *p_sigma_full + *p_sigma_mask;
+					trans(p_sigma_tem, par_link(1));
 					
-					//if(lambda0_tem < lambda0_bound(0, 0) || lambda0_tem > lambda0_bound(1, 0)) nll += Inf;
-					//if(sigma_tem < sigma_bound(0, 0) || sigma_tem > sigma_bound(1, 0)) nll += Inf;
+					p_lambda0_full++;
+					p_sigma_full++;
 
 					detfn_param(0) = lambda0_tem;
 					detfn_param(1) = sigma_tem;
 
 				} else if(detfn_index == 3){
-					g0_tem = g0_vec_full(index_data_full) + g0_vec_mask(index_data_mask);
-					g0_tem = trans(g0_tem, par_link(0));
-					sigma_tem = sigma_vec_full(index_data_full) + sigma_vec_mask(index_data_mask);
-					sigma_tem = trans(sigma_tem, par_link(1));
-					z_tem = z_vec_full(index_data_full) + z_vec_mask(index_data_mask);
-					z_tem = trans(z_tem, par_link(3));
+					*p_g0_tem = *p_g0_full + *p_g0_mask;
+					trans(p_g0_tem, par_link(0));
+					*p_sigma_tem = *p_sigma_full + *p_sigma_mask;
+					trans(p_sigma_tem, par_link(1));
+					*p_z_tem = *p_z_full + *p_z_mask;
+					trans(p_z_tem, par_link(3));
 
-					//if(g0_tem < g0_bound(0, 0) || g0_tem > g0_bound(1, 0)) nll += Inf;
-					//if(sigma_tem < sigma_bound(0, 0) || sigma_tem > sigma_bound(1, 0)) nll += Inf;
-					//if(z_tem < z_bound(0, 0) || z_tem > z_bound(1, 0)) nll += Inf;
+					p_g0_full++;
+					p_sigma_full++;
+					p_z_full++;
+
 
 					detfn_param(0) = g0_tem;
 					detfn_param(1) = sigma_tem;	
 					detfn_param(2) = z_tem;	
 
 				} else if(detfn_index == 5){
-					shape_1_tem = shape_1_vec_full(index_data_full) + shape_1_vec_mask(index_data_mask);
-					shape_1_tem = trans(shape_1_tem, par_link(4));
-					shape_2_tem = shape_2_vec_full(index_data_full) + shape_2_vec_mask(index_data_mask);
-					shape_2_tem = trans(shape_2_tem, par_link(5));
-					scale_tem = scale_vec_full(index_data_full) + scale_vec_mask(index_data_mask);
-					scale_tem = trans(scale_tem, par_link(7));
+					*p_shape_1_tem = *p_shape_1_full + *p_shape_1_mask;
+					trans(p_shape_1_tem, par_link(4));
+					*p_shape_2_tem = *p_shape_2_full + *p_shape_2_mask;
+					trans(p_shape_2_tem, par_link(5));
+					*p_scale_tem = *p_scale_full + *p_scale_mask;
+					trans(p_scale_tem, par_link(7));
 
-					//if(shape_1_tem < shape_1_bound(0, 0) || shape_1_tem > shape_1_bound(1, 0)) nll += Inf;
-					//if(shape_2_tem < shape_2_bound(0, 0) || shape_2_tem > shape_2_bound(1, 0)) nll += Inf;
-					//if(scale_tem < scale_bound(0, 0) || scale_tem > scale_bound(1, 0)) nll += Inf;
+					p_shape_1_full++;
+					p_shape_2_full++;
+					p_scale_full++;
 
 					detfn_param(0) = shape_1_tem;
 					detfn_param(1) = shape_2_tem;	
 					detfn_param(2) = scale_tem;
 					
 				} else if(detfn_index == 4){
-					shape_tem = shape_vec_full(index_data_full) + shape_vec_mask(index_data_mask);
-					shape_tem = trans(shape_tem, par_link(6));
-					scale_tem = scale_vec_full(index_data_full) + scale_vec_mask(index_data_mask);
-					scale_tem = trans(scale_tem, par_link(7));
+					*p_shape_tem = *p_shape_full + *p_shape_mask;
+					trans(p_shape_tem, par_link(6));
+					*p_scale_tem = *p_scale_full + *p_scale_mask;
+					trans(p_scale_tem, par_link(7));
 
-					//if(shape_tem < shape_bound(0, 0) || shape_tem > shape_bound(1, 0)) nll += Inf;
-					//if(scale_tem < scale_bound(0, 0) || scale_tem > scale_bound(1, 0)) nll += Inf;
+					p_shape_full++;
+					p_scale_full++;
+
 
 					detfn_param(0) = shape_tem;
 					detfn_param(1) = scale_tem;	
 				} else if(detfn_index == 6){
-					b0_ss_tem = b0_ss_vec_full(index_data_full) + b0_ss_vec_mask(index_data_mask);
-					b0_ss_tem = trans(b0_ss_tem, par_link(8));
-					b1_ss_tem = b1_ss_vec_full(index_data_full) + b1_ss_vec_mask(index_data_mask);
-					b1_ss_tem = trans(b1_ss_tem, par_link(9));
+					*p_b0_ss_tem = *p_b0_ss_full + *p_b0_ss_mask;
+					trans(p_b0_ss_tem, par_link(8));
+					*p_b1_ss_tem = *p_b1_ss_full + *p_b1_ss_mask;
+					trans(p_b1_ss_tem, par_link(9));
 
-					//if(b0_ss_tem < b0_ss_bound(0, 0) || b0_ss_tem > b0_ss_bound(1, 0)) nll += Inf;
-					//if(b1_ss_tem < b1_ss_bound(0, 0) || b1_ss_tem > b1_ss_bound(1, 0)) nll += Inf;
+					p_b0_ss_full++;
+					p_b1_ss_full++;
+
 
 					detfn_param(0) = b0_ss_tem;
 					detfn_param(1) = b1_ss_tem;
 
 				} else if(detfn_index == 7){
-					b0_ss_tem = b0_ss_vec_full(index_data_full) + b0_ss_vec_mask(index_data_mask);
-					b0_ss_tem = trans(b0_ss_tem, par_link(8));
-					b1_ss_tem = b1_ss_vec_full(index_data_full) + b1_ss_vec_mask(index_data_mask);
-					b1_ss_tem = trans(b1_ss_tem, par_link(9));
-					b2_ss_tem = b2_ss_vec_full(index_data_full) + b2_ss_vec_mask(index_data_mask);
-					b2_ss_tem = trans(b2_ss_tem, par_link(10));
+					*p_b0_ss_tem = *p_b0_ss_full + *p_b0_ss_mask;
+					trans(p_b0_ss_tem, par_link(8));
+					*p_b1_ss_tem = *p_b1_ss_full + *p_b1_ss_mask;
+					trans(p_b1_ss_tem, par_link(9));
+					*p_b2_ss_tem = *p_b2_ss_full + *p_b2_ss_mask;
+					trans(p_b2_ss_tem, par_link(10));
 
-					//if(b0_ss_tem < b0_ss_bound(0, 0) || b0_ss_tem > b0_ss_bound(1, 0)) nll += Inf;
-					//if(b1_ss_tem < b1_ss_bound(0, 0) || b1_ss_tem > b1_ss_bound(1, 0)) nll += Inf;
-					//if(b2_ss_tem < b2_ss_bound(0, 0) || b2_ss_tem > b2_ss_bound(1, 0)) nll += Inf;
+					p_b0_ss_full++;
+					p_b1_ss_full++;
+					p_b2_ss_full++;
+
 
 					detfn_param(0) = b0_ss_tem;
 					detfn_param(1) = b1_ss_tem;
 					detfn_param(2) = b2_ss_tem;
-					detfn_param(3) = theta(index_data_dist_theta);
+					detfn_param(3) = *p_theta;
 
+					p_theta++;
 				} 
 				//het is detfn_index == 8, not sure how to do it yet
 
 
 
 				if(is_ss == 0){
-					p_k(m - 1, t - 1) = (*detfn)(dx(index_data_dist_theta), detfn_param);
+					p_k(m - 1, t - 1) = (*detfn)(*p_dx, detfn_param);
+
+					p_dx++;
+
 				} else if (is_ss_origin == 1){
-					sigma_ss_tem = sigma_ss_vec_full(index_data_full) + sigma_ss_vec_mask(index_data_mask);
-					sigma_ss_tem = trans(sigma_ss_tem, par_link(11));
+					*p_sigma_ss_tem = *p_sigma_ss_full + *p_sigma_ss_mask;
+					trans(p_sigma_ss_tem, par_link(11));
 
-					//if(sigma_ss_tem < sigma_ss_bound(0, 0) || sigma_ss_tem > sigma_ss_bound(1, 0)) nll += Inf;
+					p_sigma_ss_full++;
 
-					mu(index_data_dist_theta) = (*detfn)(dx(index_data_dist_theta), detfn_param);
-					p_k(m - 1, t - 1) = 1 - pnorm((cutoff - mu(index_data_dist_theta)) / sigma_ss_tem);
+					*p_mu = (*detfn)(*p_dx, detfn_param);
+					p_k(m - 1, t - 1) = 1 - pnorm((cutoff - *p_mu) / sigma_ss_tem);
+
+					p_dx++;
+					p_mu++;
 				}
 				
 				p_dot(m - 1) *= 1 - p_k(m - 1, t - 1);
+
+
 				//end for trap t
 			}
 			
 			p_dot(m - 1) = 1 - p_dot(m - 1);
 			lambda_theta += D_tem * p_dot(m - 1);
+
 			//end for mask m
 		}
       
@@ -1026,57 +1223,70 @@ Type objective_function<Type>::operator() ()
 		
       
 		//canceled out original likelihood: nll -= dpois(Type(n_i), lambda_theta, true);
-		nll += lambda_theta;
-      
-      
+		*pointer_nll += lambda_theta;
+
+
+		p_sigma_toa_full = &sigma_toa_vec_full[index_data_full_D];
 		if(n_i != 0){
+			//Z_i is the number of detections for ID i
+			index_zi = lookup_n_detection(is_animalID, s, 0, 1, 0, n_IDs, 0);
+			index_data_IDmask = lookup_data_IDmask(is_animalID, s, 0, 1, 1,
+							0, n_IDs, 0, n_masks);
+			index_data_mask = lookup_data_mask(s, 1, n_masks);
+			index_data_dist_theta = lookup_data_dist_theta(s, 1, 1, n_traps, n_masks);
+
+			p_toa_ssq = &toa_ssq[index_data_IDmask];
+
 			for(i = 1; i <= n_i; i++){
-				//Z_i is the number of detections for ID i
-				int index_zi = lookup_n_detection(is_animalID, s, 0, i, 0, n_IDs, 0);
+
 				Z_i = n_detection(index_zi);
 				l_i = Type(0.0);
+
+				index_data_full = lookup_data_full(is_animalID, s, 0, i, 1,
+							0, n_IDs_for_datafull, n_traps, 0);
+
+				p_D_mask = &D_vec_mask[index_data_mask];
+				p_sigma_toa_mask = &sigma_toa_vec_mask[index_data_mask];
+				p_kappa_mask = &kappa_vec_mask[index_data_mask];
+				p_alpha_mask = &alpha_vec_mask[index_data_mask];
+				p_sigma_ss_mask = &sigma_ss_vec_mask[index_data_mask];
+
+				p_dx = &dx[index_data_dist_theta];
+				p_theta = &theta[index_data_dist_theta];
+				p_mu = &mu[index_data_dist_theta];
+
+
 				for(m = 1; m <= n_m; m++){
-					index_data_IDmask = lookup_data_IDmask(is_animalID, s, 0, i, m,
-						0, n_IDs, 0, n_masks);
-					index_data_mask = lookup_data_mask(s, m, n_masks);
-					//"D" is special, not related to trap nor ID, so we set id = 1 and t = 1
-					//"sigma_toa" is not trap extendable nor ID either, so take this index as well
-					index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1,
-						0, n_IDs_for_datafull, n_traps, 0);
-					D_tem = D_vec_full(index_data_full_D) + D_vec_mask(index_data_mask);
-					D_tem = trans(D_tem, par_link(16));
+					*p_D_tem = *p_D_full + *p_D_mask;
+					trans(p_D_tem, par_link(16));
+
+
 					//since we sum up original likelihood for each mask, so the inital value
 					//should be 1 instead of 0
-					fx = Type(1.0);
 					fw = Type(1.0);
-					
-					
 					
 					//for fx=f(x|n;theta)
 					//canceled out p_dot & lambda from original likelihood: 
 					//fx = D_tem * p_dot(m - 1) / lambda_theta;
 					fx = D_tem;
-					
+
+					p_capt_bin = &capt_bin[index_data_full];
 					//for fw=f(w_i|x,n;theta)
 					for(t = 1; t <= n_t; t++){
-						index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
-							0, n_IDs_for_datafull, n_traps, 0);
-						
 						if(is_ss == 0){
-							fw *= pow(p_k(m - 1, t - 1), capt_bin(index_data_full)) * 
-								pow((1 - p_k(m - 1, t - 1)), (1 - capt_bin(index_data_full)));
+							fw *= pow(p_k(m - 1, t - 1), (*p_capt_bin)) * 
+								pow((1 - p_k(m - 1, t - 1)), (1 - (*p_capt_bin)));
 						} else if(is_ss_het == 0){
 							//pow(p_k(), capt_bin()) term could be cancelled out with fy_ss
-							fw *= pow((1 - p_k(m - 1, t - 1)), (1 - capt_bin(index_data_full)));
+							fw *= pow((1 - p_k(m - 1, t - 1)), (1 - (*p_capt_bin)));
 						}
-
+						p_capt_bin++;
 					}
 					//cancelled out p_dot from original likelihood: fw /= p_dot(m - 1);
 
 					//the section below for 'fy' will be the same for all kinds of detfn excluding ss
 					//make this part a function later
 					//for fy=f(y_i|w_i,x,n;theta)
-					fy = Type(1.0);
 					
 					fy_toa_log = Type(0.0);
 					fy_bear_log = Type(0.0);
@@ -1085,79 +1295,101 @@ Type objective_function<Type>::operator() ()
 
 					//toa
 					if(is_toa == 1){
-						sigma_toa_tem = sigma_toa_vec_full(index_data_full_D) + 
-							sigma_toa_vec_mask(index_data_mask);
-						sigma_toa_tem = trans(sigma_toa_tem, par_link(14));
+						//"sigma_toa" is not trap extendable nor ID either, so take index_data_full_D as well
+						*p_sigma_toa_tem = *p_sigma_toa_full + *p_sigma_toa_mask;
+						trans(p_sigma_toa_tem, par_link(14));
 
-						Type toa_ssq_tem = toa_ssq(index_data_IDmask);
-						fy_toa_log += (1 - Z_i) * log(sigma_toa_tem) + (-0.5) * toa_ssq_tem / pow(sigma_toa_tem, 2);
+						fy_toa_log += (1 - Z_i) * log(sigma_toa_tem) + (-0.5) * (*p_toa_ssq) / pow(sigma_toa_tem, 2);
+
+						p_sigma_toa_mask++;
+						p_toa_ssq++;
+
 					}
 					
-					//bearing
-					if(is_bearing == 1){
-						for(t = 1; t <= n_t; t++){
-							index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
-								0, n_IDs_for_datafull, n_traps, 0);
-							index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
-							if(capt_bin(index_data_full) > 0){
-								kappa_tem = kappa_vec_full(index_data_full) + kappa_vec_mask(index_data_mask);
-								kappa_tem = trans(kappa_tem, par_link(12));
-								fy_bear_log += (kappa_tem * cos(capt_bearing(index_data_full) - theta(index_data_dist_theta)) - 
+
+
+					p_capt_bin = &capt_bin[index_data_full];
+					p_capt_bearing = &capt_bearing[index_data_full];
+					p_capt_dist = &capt_dist[index_data_full];
+					p_capt_ss = &capt_ss[index_data_full];
+
+
+
+					p_kappa_full = &kappa_vec_full[index_data_full];
+					p_alpha_full = &alpha_vec_full[index_data_full];
+					p_sigma_ss_full = &sigma_ss_vec_full[index_data_full];
+
+					for(t = 1; t <= n_t; t++){
+						//bearing
+						if(is_bearing == 1){
+							if(*p_capt_bin > 0){
+								*p_kappa_tem = *p_kappa_full + *p_kappa_mask;
+								trans(p_kappa_tem, par_link(12));
+								fy_bear_log += (kappa_tem * cos(*p_capt_bearing - *p_theta) - 
 									log(besselI(kappa_tem, Type(0))));
 							}
-
 						}
-					}
 
-					
-					//dist
-					if(is_dist == 1){
-						for(t = 1; t <= n_t; t++){
-							index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
-																0, n_IDs_for_datafull, n_traps, 0);
-							index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
-							if(capt_bin(index_data_full) > 0){
-								alpha_tem = alpha_vec_full(index_data_full) + alpha_vec_mask(index_data_mask);
-								alpha_tem = trans(alpha_tem, par_link(13));
-								fy_dist_log +=  ((-1) * (alpha_tem * (log(dx(index_data_dist_theta)) - log(alpha_tem)) + lgamma(alpha_tem)) + (alpha_tem - 1) * 
-									log(capt_dist(index_data_full)) - alpha_tem * capt_dist(index_data_full) / dx(index_data_dist_theta));							
+						//dist
+						if(is_dist == 1){
+							if(*p_capt_bin > 0){
+								*p_alpha_tem = *p_alpha_full + *p_alpha_mask;
+								trans(p_alpha_tem, par_link(13));
+								fy_dist_log +=  ((-1) * (alpha_tem * (log(*p_dx) - log(alpha_tem)) + lgamma(alpha_tem)) + (alpha_tem - 1) * 
+									log(*p_capt_dist) - alpha_tem * (*p_capt_dist) / *p_dx);						
 							}
-
 						}
-					}
 
-					//ss
-					if(is_ss_origin == 1){
-						for(t = 1; t <= n_t; t++){
-							index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
-																0, n_IDs_for_datafull, n_traps, 0);
-							index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
-							if(capt_bin(index_data_full) > 0){
-								sigma_ss_tem = sigma_ss_vec_full(index_data_full) + sigma_ss_vec_mask(index_data_mask);
-								sigma_ss_tem = trans(sigma_ss_tem, par_link(11));
+						//ss_origin
+						if(is_ss_origin == 1){
+							if(*p_capt_bin > 0){
+								*p_sigma_ss_tem = *p_sigma_ss_full + *p_sigma_ss_mask;
+								trans(p_sigma_ss_tem, par_link(11));
 								
-								fy_ss_log += dnorm(capt_ss(index_data_full), mu(index_data_dist_theta), sigma_ss_tem, true);
+								fy_ss_log += dnorm(*p_capt_ss, *p_mu, sigma_ss_tem, true);
 							}
-
 						}
+
+						p_capt_bin++;
+						p_capt_bearing++;
+						p_capt_dist++;
+						p_capt_ss++;
+
+
+						p_kappa_full++;
+						p_alpha_full++;
+						p_sigma_ss_full++;
+
+
+						p_mu++;
+						p_dx++;
+						p_theta++;
 					}
-					
-					
-					fy *= exp(fy_toa_log + fy_bear_log + fy_dist_log + fy_ss_log);
+
 					//end of the section for 'fy'
 
 					//we sum up likelihood (not log-likelihood) of each mask 
-					l_i += fw * fx * fy;
+					l_i += fw * fx * exp(fy_toa_log + fy_bear_log + fy_dist_log + fy_ss_log);
+
+					p_D_mask++;
+					p_sigma_toa_mask++;
+
+					p_kappa_mask++;
+					p_alpha_mask++;
+					p_sigma_ss_mask++;
 					//end for mask m
 				}
 			  
-			  nll -= log(l_i);
+			  	*pointer_nll -= log(l_i);
+
+				index_zi++;
+
 			  //end for ID i
 			}
 
 			//end for if(n_i != 0)
 		}
-      //end for session s
+      	//end for session s
     }
 
   

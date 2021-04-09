@@ -20,7 +20,7 @@ source('test_data_preparation.r')
 #ss fitting
 #joint ss/toa fitting
 #Inhomogeneous density estimation
-test_data("Inhomogeneous density estimation")
+test_data("bearing fitting")
 
 
 
@@ -116,6 +116,37 @@ if("animal_ID" %in% colnames(data.full)){
 
 dims$n.detection = cal_n_det(data.full)
 
+tem = extract_unique_id(data.full, dims)
+#these two dimensions are a little bit ambiguous
+#n.id.uid means the number of IDs under each unique capture history, this is a vector that
+#simply combines these numbers for all unique capture histories in all sessions in a row
+#for example, if there are 3 sessions and 1st session has 3 unique capture histories, and 2nd has no detection
+#and the 3rd session has 2 unique capture histories
+#then this n.id.uid will be a vector with length of 3 + 0 + 2 = 5
+
+dims$n.id.uid = tem$n_id_uid
+
+#n.uids is the number of unique capture histories in each session, it is a vector
+#with length of n.sessions
+
+dims$n.uids = tem$n_uids
+
+#each unique capture history
+data_u_bin = tem$data_u_bin
+
+#this one is like the number of detection for each uid, like 'n.detection', this is a literately vector
+#if 3 sessions, and their n.uid is 3,0,2, then this "n.detection.uid" is vector with length of 5
+dims$n.detection.uid = aggregate(data_u_bin$bincapt, list(session = data_u_bin$session,
+                                  u_id = data_u_bin$u_id), function(x) sum(x == 1))$x
+
+#this is a literately vector as well, "n.detection.uid" must be used to extract the index of traps for one uid
+index_traps_uid = do.call('c', aggregate(data_u_bin$bincapt, list(session = data_u_bin$session, 
+                                                u_id = data_u_bin$u_id), function(x) which(x == 1))$x)
+
+#ID and unique capture history match table
+u_id_match = tem$u_id_match
+
+
 if(is.null(ss.opts)){
   n_dir_quadpoints = 0
   n_het_source_quadpoints = 0
@@ -150,9 +181,13 @@ data <- list(n_sessions = dims$n.sessions,
              n_traps = dims$n.traps,
              n_masks = dims$n.masks,
              n_detection = dims$n.detection,
+             n_detection_uid = dims$n.detection.uid,
              n_calls_each_animal = dims$n.calls.each.animal,
-
-
+             n_uid_session = dims$n.uids,
+             n_ids_each_uid = dims$n.id.uid,
+             index_traps_uid = index_traps_uid, 
+             
+             
              nrow_data_full = nrow(data.full),
              nrow_data_mask = nrow(data.mask),
              nrow_dx = nrow(data.dists.thetas),
@@ -204,6 +239,9 @@ data <- list(n_sessions = dims$n.sessions,
              is_dist = as.numeric("dist" %in% bucket_info),
              is_local = as.numeric("local" %in% bucket_info),
              is_freqs = as.numeric("freqs" %in% bucket_info),
+             
+             u_id_match = u_id_match$u_id,
+             capt_bin_uid = data_u_bin$bincapt,
              
              capt_bin = ifelse(is.na(data.full$bincapt), 0, data.full$bincapt),
              capt_bearing = ifelse(is.na(data.full$bearing), 0, data.full$bearing),
@@ -263,23 +301,19 @@ for(i in 1:length(name.fixed.par.4cpp)){
 }
 
 
-compile("fit_ascr_TypeIII.cpp")
-dyn.load(dynlib("fit_ascr_TypeIII"))
+compile("fit_ascr_TypeVI.cpp")
+dyn.load(dynlib("fit_ascr_TypeVI"))
 
 system.time({
   if(!("ss.het" %in% bucket_info)){
-    obj <- MakeADFun(data = data, parameters = parameters, map = map, DLL="fit_ascr_TypeIII")
+    obj <- MakeADFun(data = data, parameters = parameters, map = map, DLL="fit_ascr_TypeVI")
   } else {
-    obj <- MakeADFun(data = data, parameters = parameters, random = "u", map = map, DLL="fit_ascr_TypeIII")
+    obj <- MakeADFun(data = data, parameters = parameters, random = "u", map = map, DLL="fit_ascr_TypeVI")
   }
-})
 
-system.time({
   obj$hessian <- TRUE
   opt = nlminb(obj$par, obj$fn, obj$gr)
-})
 
-system.time({
   o = sdreport(obj)
 })
 

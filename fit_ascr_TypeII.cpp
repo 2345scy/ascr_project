@@ -82,7 +82,7 @@ int lookup_data_dist_theta(int s, int t, int m,
       ans = ans + n_t(s_index - 1) * n_m(s_index - 1);
     }
   }
-  ans = ans + (t - 1) * n_m(s - 1) + m - 1 ;
+  ans = ans + (m - 1) * n_t(s - 1) + t - 1 ;
   
   return ans;
 }

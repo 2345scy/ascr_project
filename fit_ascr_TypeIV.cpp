@@ -1,11 +1,5 @@
 #include <TMB.hpp>
-template<class Type>
-vector<Type> extractsubvector(vector<Type> v, int a, int b){
-  int sublength = b - a + 1;
-  vector<Type> subv(sublength);
-  for(int m = 0; m < sublength; m++) subv[m] = v[a + m];
-  return subv;
-}
+
 
 
 vector<int> incheck(vector<int> a, vector<int> b){
@@ -50,7 +44,26 @@ vector<Type> isNA(vector<Type> x){
   return ans;
 }
 
+template<class Type>
+Type trans(Type x, int link){
+  Type ans = 0.0;
+  if(link == 1) {
+    ans = x;
+  }
+  if(link == 2){
+    ans = exp(x);
+  }
+  if(link == 3){
+    ans = exp(x)/(1 + exp(x));
+  }
+  
+  return ans;
+  
+}
 
+
+
+//look up series functions------------------------------------------------------------------
 
 
 //here n_i is n_IDs_for_datafull
@@ -121,6 +134,21 @@ int lookup_data_IDmask(int is_ani, int s, int a, int i, int m,
   return ans;
 }
 
+int lookup_bincapt_uid(int s, int uid, int t, vector<int> n_uid_session, 
+	vector<int> n_t){
+	
+	int ans = 0;
+	if(s > 1){
+		for(int s_index = 1; s_index < s; s_index++){
+			ans = ans + n_uid_session(s_index - 1) * n_t(s_index - 1);
+		}
+	}
+
+	ans = ans + (uid - 1) * n_t(s - 1) + t - 1;
+
+	return ans;
+}
+
 //here n_i is n_IDs as well
 int lookup_n_detection(int is_ani, int s, int a, int i, vector<int> n_a,
                        vector<int> n_i, vector<int> n_i_each_a){
@@ -141,7 +169,35 @@ int lookup_n_detection(int is_ani, int s, int a, int i, vector<int> n_a,
 }
 
 
+int lookup_n_detection_uid(int s, int uid, vector<int> n_uid_session){
+  	int ans = 0;
+
+	if(s > 1){
+		for(int s_index = 1; s_index < s; s_index++){
+		ans = ans + n_uid_session(s_index - 1);
+		}
+	}
+
+	ans = ans + uid - 1;
+  
+  	return ans;
+}
+
 int look_up_u(int s, int i, vector<int> n_i){
+	int ans = 0;
+	if(s > 1){
+		for(int s_index = 1; s_index < s; s_index++){
+			ans += n_i(s_index - 1);
+		}
+	}
+
+	ans += i - 1;
+	return ans;
+}
+
+//this is the function to look up the uid based on session and id from "u_id_match"
+//this is the same with look_up_u, but to make it easy to understand
+int look_up_uid(int s, int i, vector<int> n_i){
 	int ans = 0;
 	if(s > 1){
 		for(int s_index = 1; s_index < s; s_index++){
@@ -155,24 +211,11 @@ int look_up_u(int s, int i, vector<int> n_i){
 
 
 
-template<class Type>
-Type trans(Type x, int link){
-  Type ans = 0.0;
-  if(link == 1) {
-    ans = x;
-  }
-  if(link == 2){
-    ans = exp(x);
-  }
-  if(link == 3){
-    ans = exp(x)/(1 + exp(x));
-  }
-  
-  return ans;
-  
-}
+//end of look up functions-------------------------------------------------------------
 
-//detect functions
+
+
+//detect functions---------------------------------------------------------------------
 
 //hn
 template<class Type>
@@ -306,6 +349,8 @@ Type mu_ss_het(Type dx, vector<Type> param){
 	return mu;
 }
 
+//end of detection functions------------------------------------------------------------------------
+
 template<class Type>
 Type objective_function<Type>::operator() ()
 {
@@ -320,7 +365,11 @@ Type objective_function<Type>::operator() ()
 	DATA_IVECTOR(n_traps);
 	DATA_IVECTOR(n_masks);
 	DATA_IVECTOR(n_detection);
+	DATA_IVECTOR(n_detection_uid);
 	DATA_IVECTOR(n_calls_each_animal);
+	DATA_IVECTOR(n_uid_session);
+	DATA_IVECTOR(n_ids_each_uid);
+	DATA_IVECTOR(index_traps_uid);
 
 
 	DATA_INTEGER(nrow_data_full);
@@ -359,7 +408,9 @@ Type objective_function<Type>::operator() ()
 	DATA_INTEGER(is_local);
 	DATA_INTEGER(is_freqs);
   
-  
+	DATA_IVECTOR(u_id_match);
+	DATA_VECTOR(capt_bin_uid);
+
 	DATA_VECTOR(capt_bin);
 	DATA_VECTOR(capt_bearing);
 	DATA_VECTOR(capt_dist);
@@ -833,9 +884,13 @@ Type objective_function<Type>::operator() ()
 
 	int index_data_mask;
 	int index_data_full_D;
+	int index_data_full_initial;
 	int index_data_full;
 	int index_data_dist_theta;
+	int index_data_dist_theta_initial;
 	int index_data_IDmask;
+	int index_data_mask_initial;
+	int index_zi;
 	int s;
 	int m;
 	int t;
@@ -879,11 +934,21 @@ Type objective_function<Type>::operator() ()
 		//row index of p_k is for mask, colnum index is for trap/detector
 		matrix<Type> p_k(n_m, n_t);
 
-		for(m = 1; m <= n_m; m++){
-			index_data_mask = lookup_data_mask(s, m, n_masks);
-			//"D" is special, not related to trap nor ID, so we set id = 1 and t = 1
-			index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1, 0, 
+		index_data_mask = lookup_data_mask(s, 1, n_masks);
+
+		//"D" is special, not related to trap nor ID, so we set id = 1 and t = 1
+		index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1, 0, 
 				n_IDs_for_datafull, n_traps, 0);
+
+		//the arguments in the function of "int a", "vector<int> n_a/n_i_each_a",
+		//are set to 0, and "int i" is set to 1 because currently we do not have
+		//"ID-level" parameter extension
+		index_data_full_initial = lookup_data_full(is_animalID, s, 0, 1, 1,
+					0, n_IDs_for_datafull, n_traps, 0);
+
+		index_data_dist_theta = lookup_data_dist_theta(s, 1, 1, n_traps, n_masks);
+
+		for(m = 1; m <= n_m; m++){
 			D_tem = D_vec_full[index_data_full_D] + D_vec_mask[index_data_mask];
 			D_tem = trans(D_tem, par_link(16));
 
@@ -891,15 +956,10 @@ Type objective_function<Type>::operator() ()
 
 			p_dot(m - 1) = Type(1.0);
 
-			for(t = 1; t <= n_t; t++){
-				//the arguments in the function of "int a", "vector<int> n_a/n_i_each_a",
-				//are set to 0, and "int i" is set to 1 because currently we do not have
-				//"ID-level" parameter extension
-				index_data_full = lookup_data_full(is_animalID, s, 0, 1, t,
-					0, n_IDs_for_datafull, n_traps, 0);
 
-				index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
-				
+			index_data_full = index_data_full_initial;
+			for(t = 1; t <= n_t; t++){
+	
 				if(detfn_index == 1){
 					g0_tem = g0_vec_full(index_data_full) + g0_vec_mask(index_data_mask);
 					g0_tem = trans(g0_tem, par_link(0));
@@ -1014,11 +1074,16 @@ Type objective_function<Type>::operator() ()
 				}
 				
 				p_dot(m - 1) *= 1 - p_k(m - 1, t - 1);
+
+				index_data_dist_theta++;
+				index_data_full++;
 				//end for trap t
 			}
 			
 			p_dot(m - 1) = 1 - p_dot(m - 1);
 			lambda_theta += D_tem * p_dot(m - 1);
+
+			index_data_mask++;
 			//end for mask m
 		}
       
@@ -1027,41 +1092,40 @@ Type objective_function<Type>::operator() ()
       
 		//canceled out original likelihood: nll -= dpois(Type(n_i), lambda_theta, true);
 		nll += lambda_theta;
-      
-      
+
 		if(n_i != 0){
+			//Z_i is the number of detections for ID i
+			index_zi = lookup_n_detection(is_animalID, s, 0, 1, 0, n_IDs, 0);
+			index_data_IDmask = lookup_data_IDmask(is_animalID, s, 0, 1, 1,
+							0, n_IDs, 0, n_masks);
+			index_data_mask_initial = lookup_data_mask(s, 1, n_masks);
+			index_data_dist_theta_initial = lookup_data_dist_theta(s, 1, 1, n_traps, n_masks);
 			for(i = 1; i <= n_i; i++){
-				//Z_i is the number of detections for ID i
-				int index_zi = lookup_n_detection(is_animalID, s, 0, i, 0, n_IDs, 0);
+
 				Z_i = n_detection(index_zi);
 				l_i = Type(0.0);
+
+				index_data_mask = index_data_mask_initial;
+				index_data_dist_theta = index_data_dist_theta_initial;
+
+				index_data_full_initial = lookup_data_full(is_animalID, s, 0, i, 1,
+							0, n_IDs_for_datafull, n_traps, 0);
+
 				for(m = 1; m <= n_m; m++){
-					index_data_IDmask = lookup_data_IDmask(is_animalID, s, 0, i, m,
-						0, n_IDs, 0, n_masks);
-					index_data_mask = lookup_data_mask(s, m, n_masks);
-					//"D" is special, not related to trap nor ID, so we set id = 1 and t = 1
-					//"sigma_toa" is not trap extendable nor ID either, so take this index as well
-					index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1,
-						0, n_IDs_for_datafull, n_traps, 0);
 					D_tem = D_vec_full(index_data_full_D) + D_vec_mask(index_data_mask);
 					D_tem = trans(D_tem, par_link(16));
+
 					//since we sum up original likelihood for each mask, so the inital value
 					//should be 1 instead of 0
-					fx = Type(1.0);
 					fw = Type(1.0);
-					
-					
 					
 					//for fx=f(x|n;theta)
 					//canceled out p_dot & lambda from original likelihood: 
 					//fx = D_tem * p_dot(m - 1) / lambda_theta;
 					fx = D_tem;
-					
+					index_data_full = index_data_full_initial;
 					//for fw=f(w_i|x,n;theta)
 					for(t = 1; t <= n_t; t++){
-						index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
-							0, n_IDs_for_datafull, n_traps, 0);
-						
 						if(is_ss == 0){
 							fw *= pow(p_k(m - 1, t - 1), capt_bin(index_data_full)) * 
 								pow((1 - p_k(m - 1, t - 1)), (1 - capt_bin(index_data_full)));
@@ -1069,14 +1133,13 @@ Type objective_function<Type>::operator() ()
 							//pow(p_k(), capt_bin()) term could be cancelled out with fy_ss
 							fw *= pow((1 - p_k(m - 1, t - 1)), (1 - capt_bin(index_data_full)));
 						}
-
+						index_data_full++;
 					}
 					//cancelled out p_dot from original likelihood: fw /= p_dot(m - 1);
 
 					//the section below for 'fy' will be the same for all kinds of detfn excluding ss
 					//make this part a function later
 					//for fy=f(y_i|w_i,x,n;theta)
-					fy = Type(1.0);
 					
 					fy_toa_log = Type(0.0);
 					fy_bear_log = Type(0.0);
@@ -1085,6 +1148,7 @@ Type objective_function<Type>::operator() ()
 
 					//toa
 					if(is_toa == 1){
+						//"sigma_toa" is not trap extendable nor ID either, so take index_data_full_D as well
 						sigma_toa_tem = sigma_toa_vec_full(index_data_full_D) + 
 							sigma_toa_vec_mask(index_data_mask);
 						sigma_toa_tem = trans(sigma_toa_tem, par_link(14));
@@ -1093,71 +1157,62 @@ Type objective_function<Type>::operator() ()
 						fy_toa_log += (1 - Z_i) * log(sigma_toa_tem) + (-0.5) * toa_ssq_tem / pow(sigma_toa_tem, 2);
 					}
 					
-					//bearing
-					if(is_bearing == 1){
-						for(t = 1; t <= n_t; t++){
-							index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
-								0, n_IDs_for_datafull, n_traps, 0);
-							index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
+
+					index_data_full = index_data_full_initial;
+					for(t = 1; t <= n_t; t++){
+						//bearing
+						if(is_bearing == 1){
 							if(capt_bin(index_data_full) > 0){
 								kappa_tem = kappa_vec_full(index_data_full) + kappa_vec_mask(index_data_mask);
 								kappa_tem = trans(kappa_tem, par_link(12));
 								fy_bear_log += (kappa_tem * cos(capt_bearing(index_data_full) - theta(index_data_dist_theta)) - 
 									log(besselI(kappa_tem, Type(0))));
 							}
-
 						}
-					}
 
-					
-					//dist
-					if(is_dist == 1){
-						for(t = 1; t <= n_t; t++){
-							index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
-																0, n_IDs_for_datafull, n_traps, 0);
-							index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
+						//dist
+						if(is_dist == 1){
 							if(capt_bin(index_data_full) > 0){
 								alpha_tem = alpha_vec_full(index_data_full) + alpha_vec_mask(index_data_mask);
 								alpha_tem = trans(alpha_tem, par_link(13));
 								fy_dist_log +=  ((-1) * (alpha_tem * (log(dx(index_data_dist_theta)) - log(alpha_tem)) + lgamma(alpha_tem)) + (alpha_tem - 1) * 
 									log(capt_dist(index_data_full)) - alpha_tem * capt_dist(index_data_full) / dx(index_data_dist_theta));							
 							}
-
 						}
-					}
 
-					//ss
-					if(is_ss_origin == 1){
-						for(t = 1; t <= n_t; t++){
-							index_data_full = lookup_data_full(is_animalID, s, 0, i, t,
-																0, n_IDs_for_datafull, n_traps, 0);
-							index_data_dist_theta = lookup_data_dist_theta(s, t, m, n_traps, n_masks);
+						//ss_origin
+						if(is_ss_origin == 1){
 							if(capt_bin(index_data_full) > 0){
 								sigma_ss_tem = sigma_ss_vec_full(index_data_full) + sigma_ss_vec_mask(index_data_mask);
 								sigma_ss_tem = trans(sigma_ss_tem, par_link(11));
 								
 								fy_ss_log += dnorm(capt_ss(index_data_full), mu(index_data_dist_theta), sigma_ss_tem, true);
 							}
-
 						}
+						index_data_full++;
+						index_data_dist_theta++;
 					}
-					
-					
-					fy *= exp(fy_toa_log + fy_bear_log + fy_dist_log + fy_ss_log);
+
 					//end of the section for 'fy'
 
 					//we sum up likelihood (not log-likelihood) of each mask 
-					l_i += fw * fx * fy;
+					l_i += fw * fx * exp(fy_toa_log + fy_bear_log + fy_dist_log + fy_ss_log);
+
+					index_data_mask++;
+					index_data_IDmask++;
 					//end for mask m
 				}
 			  
-			  nll -= log(l_i);
+			  	nll -= log(l_i);
+
+				index_zi++;
+
 			  //end for ID i
 			}
 
 			//end for if(n_i != 0)
 		}
-      //end for session s
+      	//end for session s
     }
 
   

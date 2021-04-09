@@ -345,7 +345,7 @@ sort.data = function(dat, name){
   }
   
   if(name == "data.dists.thetas"){
-    dat = dat[order(dat$session, dat$trap, dat$mask), ]
+    dat = dat[order(dat$session, dat$mask, dat$trap), ]
   }
   
   if(name == "data.ID_mask"){
@@ -443,4 +443,36 @@ cal_n_det = function(data.full){
     return(tem$x)
   }
   
+}
+
+
+extract_unique_id = function(data.full, dims){
+  dat = subset(data.full,!is.na(ID))
+  data.u.id.match = data.frame(session = numeric(0), ID = numeric(0), u_id = numeric(0))
+  data.u.bin = data.frame(session = numeric(0), u_id = numeric(0), trap = numeric(0), bincapt = numeric(0))
+  n.u.id = numeric(0)
+  n.u.id.session = numeric(dims$n.sessions)
+  for(s in 1:dims$n.sessions){
+    tem = subset(dat, session == s)
+    if(nrow(tem) > 0){
+      tem = aggregate(tem$bincapt, list(ID = tem$ID), function(x) t(x))
+      u.bin = unique(tem$x)
+      n.u.id.session[s] = nrow(u.bin)
+      tem$u_id = 0
+      for(i in 1:nrow(tem)){
+        captbin = as.vector(tem[i,'x'])
+        tem$u_id[i] = which(apply(u.bin, 1, function(x) all(as.vector(x) == captbin)))
+      }
+      tem = tem[, c('ID', 'u_id')]
+      tem$session = s
+      n.u.id = c(n.u.id, as.vector(table(tem$u_id)))
+      data.u.id.match = rbind(data.u.id.match, tem)
+      u.bin = data.frame(session = s, u_id = rep(1:nrow(u.bin), each = dims$n.traps[s]), 
+                            trap = rep(1:dims$n.traps[s], nrow(u.bin)), bincapt = as.vector(t(u.bin)))
+      data.u.bin = rbind(data.u.bin, u.bin)
+    }
+  }
+
+  
+  return(list(data_u_bin = data.u.bin, u_id_match = data.u.id.match, n_id_uid = n.u.id, n_uids = n.u.id.session))
 }
