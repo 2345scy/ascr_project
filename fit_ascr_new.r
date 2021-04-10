@@ -249,6 +249,7 @@ data <- list(n_sessions = dims$n.sessions,
              capt_ss = ifelse(is.na(data.full$ss), 0, data.full$ss),
              capt_toa = ifelse(is.na(data.full$toa), 0, data.full$toa),
              
+             
              dx = data.dists.thetas$dx,
              theta = data.dists.thetas$theta,
              

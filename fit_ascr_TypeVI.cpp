@@ -872,7 +872,7 @@ Type objective_function<Type>::operator() ()
 	Type alpha_tem;
 	Type sigma_toa_tem;
 	Type sigma_b0_ss_tem;
-	Type D_tem;
+
 
 	Type *p_g0_tem = &g0_tem;
 	Type *p_sigma_tem = &sigma_tem;
@@ -890,7 +890,7 @@ Type objective_function<Type>::operator() ()
 	Type *p_alpha_tem = &alpha_tem;
 	Type *p_sigma_toa_tem = &sigma_toa_tem;
 	Type *p_sigma_b0_ss_tem = &sigma_b0_ss_tem;
-	Type *p_D_tem = &D_tem;
+
 
 	//mu = E(ss|x), since it is "session-mask-trap"
 	//level data, use data_dist_theta's index
@@ -960,7 +960,7 @@ Type objective_function<Type>::operator() ()
 	Type lambda_theta;
 	Type Z_i;
 	Type l_i;
-	Type fx;
+
 	Type fw;
 
 	
@@ -990,6 +990,9 @@ Type objective_function<Type>::operator() ()
 		vector<Type> p_dot(n_m);
 		//row index of p_k is for mask, colnum index is for trap/detector
 		matrix<Type> p_k(n_m, n_t);
+
+		vector<Type> D_tem(n_m);
+		Type *p_D_tem = &D_tem[0];
 
 		index_data_mask = lookup_data_mask(s, 1, n_masks);
 
@@ -1045,7 +1048,6 @@ Type objective_function<Type>::operator() ()
 		for(m = 1; m <= n_m; m++){
 			*p_D_tem = *p_D_full + *p_D_mask;
 			trans(p_D_tem, par_link(16));
-			p_D_mask++;
 
 			p_dot(m - 1) = Type(1.0);
 
@@ -1214,14 +1216,17 @@ Type objective_function<Type>::operator() ()
 			}
 			
 			p_dot(m - 1) = 1 - p_dot(m - 1);
-			lambda_theta += D_tem * p_dot(m - 1);
+			lambda_theta += *p_D_tem * p_dot(m - 1);
 
+
+			p_D_mask++;
+			p_D_tem++;
 			//end for mask m
 		}
       
 		//end of lambda_theta calculation
 		
-      
+
 		//canceled out original likelihood: nll -= dpois(Type(n_i), lambda_theta, true);
 		*pointer_nll += lambda_theta;
 
@@ -1245,7 +1250,6 @@ Type objective_function<Type>::operator() ()
 				index_data_full = lookup_data_full(is_animalID, s, 0, i, 1,
 							0, n_IDs_for_datafull, n_traps, 0);
 
-				p_D_mask = &D_vec_mask[index_data_mask];
 				p_sigma_toa_mask = &sigma_toa_vec_mask[index_data_mask];
 				p_kappa_mask = &kappa_vec_mask[index_data_mask];
 				p_alpha_mask = &alpha_vec_mask[index_data_mask];
@@ -1255,20 +1259,14 @@ Type objective_function<Type>::operator() ()
 				p_theta = &theta[index_data_dist_theta];
 				p_mu = &mu[index_data_dist_theta];
 
+				//reset p_D_tem
+				p_D_tem = &D_tem[0];
 
 				for(m = 1; m <= n_m; m++){
-					*p_D_tem = *p_D_full + *p_D_mask;
-					trans(p_D_tem, par_link(16));
-
 
 					//since we sum up original likelihood for each mask, so the inital value
 					//should be 1 instead of 0
 					fw = Type(1.0);
-					
-					//for fx=f(x|n;theta)
-					//canceled out p_dot & lambda from original likelihood: 
-					//fx = D_tem * p_dot(m - 1) / lambda_theta;
-					fx = D_tem;
 
 					p_capt_bin = &capt_bin[index_data_full];
 					//for fw=f(w_i|x,n;theta)
@@ -1368,10 +1366,16 @@ Type objective_function<Type>::operator() ()
 
 					//end of the section for 'fy'
 
-					//we sum up likelihood (not log-likelihood) of each mask 
-					l_i += fw * fx * exp(fy_toa_log + fy_bear_log + fy_dist_log + fy_ss_log);
+					//for fx=f(x|n;theta)
+					//canceled out p_dot & lambda from original likelihood: 
+					//fx = D_tem[m-1] * p_dot(m - 1) / lambda_theta = D_tem[m-1];
+					//so fx was directly integrated into l_i below
 
-					p_D_mask++;
+
+					//we sum up likelihood (not log-likelihood) of each mask 
+					l_i += fw * (*p_D_tem) * exp(fy_toa_log + fy_bear_log + fy_dist_log + fy_ss_log);
+
+					p_D_tem++;
 					p_sigma_toa_mask++;
 
 					p_kappa_mask++;
