@@ -450,8 +450,10 @@ test_that("first-call signal strength models", {
 })
 
 test_that("Multi-session models", {
-    fit <- fit.ascr(multi.example.data$capt, multi.example.data$traps, multi.example.data$mask,
+    system.time({
+        fit <- fit.ascr(multi.example.data$capt, multi.example.data$traps, multi.example.data$mask,
                     sv = list(kappa = 100))
+    })
     pars.test <- c(2533.22259137523, 0.713499860581126, 3.29921342361265, 
                    14.8014736645179, 3.76943534560188)
     relative.error <- max(abs((coef(fit) - pars.test)/pars.test))

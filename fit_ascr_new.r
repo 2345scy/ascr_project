@@ -20,9 +20,8 @@ source('test_data_preparation.r')
 #ss fitting
 #joint ss/toa fitting
 #Inhomogeneous density estimation
-test_data("bearing fitting")
-
-
+#Multi-session models
+test_data("Multi-session models")
 
 capt_input = create.capt(captures, traps = traps)
 
@@ -140,11 +139,15 @@ dims$n.detection.uid = aggregate(data_u_bin$bincapt, list(session = data_u_bin$s
                                   u_id = data_u_bin$u_id), function(x) sum(x == 1))$x
 
 #this is a literately vector as well, "n.detection.uid" must be used to extract the index of traps for one uid
-index_traps_uid = do.call('c', aggregate(data_u_bin$bincapt, list(session = data_u_bin$session, 
-                                                u_id = data_u_bin$u_id), function(x) which(x == 1))$x)
+index_traps_uid = aggregate(data_u_bin$bincapt, list(session = data_u_bin$session, 
+                                         u_id = data_u_bin$u_id), function(x) which(x == 1))
+index_traps_uid = sort.data(index_traps_uid, "index_traps_uid")
+index_traps_uid = do.call('c', index_traps_uid$x)
+
 
 #ID and unique capture history match table
 u_id_match = tem$u_id_match
+u_id_match = sort.data(u_id_match, "u_id_match")
 
 
 if(is.null(ss.opts)){

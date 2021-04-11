@@ -861,7 +861,7 @@ Type objective_function<Type>::operator() ()
 			int index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1, 0, 
 				n_IDs_for_datafull, n_traps, 0);
 			D_tem = D_vec_full[index_data_full_D] + D_vec_mask[index_data_mask];
-			D_tem = trans(D_tem, par_link(16));
+			D_tem = area_unit * trans(D_tem, par_link(16));
 
 			//if(D_tem < D_bound(0, 0) || D_tem > D_bound(1, 0)) nll += Inf;			
 
@@ -988,7 +988,8 @@ Type objective_function<Type>::operator() ()
 					mu(index_data_dist_theta) = (*detfn)(dx(index_data_dist_theta), detfn_param);
 					p_k(m - 1, t - 1) = 1 - pnorm((cutoff - mu(index_data_dist_theta)) / sigma_ss_tem);
 				}
-				
+				std::cout <<  "dx for s=" << s << ", m="<< m << ", t="<< t <<": " << dx(index_data_dist_theta) << std::endl;
+				std::cout <<  "p_k for s=" << s << ", m="<< m << ", t="<< t <<": " << p_k(m - 1, t - 1) << std::endl;
 				p_dot(m - 1) *= 1 - p_k(m - 1, t - 1);
 				//end for trap t
 			}
@@ -1020,7 +1021,7 @@ Type objective_function<Type>::operator() ()
 					int index_data_full_D = lookup_data_full(is_animalID, s, 0, 1, 1,
 						0, n_IDs_for_datafull, n_traps, 0);
 					Type D_tem = D_vec_full(index_data_full_D) + D_vec_mask(index_data_mask);
-					D_tem = trans(D_tem, par_link(16));
+					D_tem = area_unit * trans(D_tem, par_link(16));
 					//since we sum up original likelihood for each mask, so the inital value
 					//should be 1 instead of 0
 					Type fx = Type(1.0);

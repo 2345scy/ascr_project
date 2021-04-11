@@ -184,6 +184,35 @@ test_data = function(model_type){
     local_input <<- FALSE
     sound.speed <<- 331
     
+  } else if (model_type == "Multi-session models"){
+    captures1 = data.frame(session = rep(1, 57 * 6), ID = rep(1:57, 6), occasion = rep(1, 57 * 6),
+                            trap = rep(1:6, each = 57), stringsAsFactors = FALSE)
+    captures1$bearing = as.vector(multi.example.data$capt[[1]][["bearing"]])
+    captures1$dist = as.vector(multi.example.data$capt[[1]][["dist"]])
+    captures1 = captures1[as.logical(as.vector(multi.example.data$capt[[1]][["bincapt"]])),]
+
+    captures2 = data.frame(session = rep(2, 29 * 3), ID = rep(1:29, 3), occasion = rep(2, 29 * 3),
+                            trap = rep(1:3, each = 29), stringsAsFactors = FALSE)
+    captures2$bearing = as.vector(multi.example.data$capt[[2]][["bearing"]])
+    captures2$dist = as.vector(multi.example.data$capt[[2]][["dist"]])
+    captures2 = captures2[as.logical(as.vector(multi.example.data$capt[[2]][["bincapt"]])),]
+
+    captures <<- rbind(captures1, captures2)
+
+    
+    traps <<- multi.example.data$traps
+    masks <<- multi.example.data$mask
+    
+    par.extend <<- NULL
+    ss.opts <<- NULL
+    survey.length <<- NULL
+    cue.rates <<- NULL
+    detfn <<- NULL
+    bounds <<- NULL
+    sv_list <<- list(kappa = 100)
+    fix_list <<- NULL
+    local_input <<- FALSE
+    sound.speed <<- 331
   }
 
 }

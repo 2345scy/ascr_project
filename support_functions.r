@@ -360,6 +360,14 @@ sort.data = function(dat, name){
     dat = dat[order(dat$session, dat$mask),]
   }
   
+  if(name == "u_id_match"){
+    dat = dat[order(dat$session, dat$u_id, dat$ID),]
+  }
+  
+  if(name == "index_traps_uid"){
+    dat = dat[order(dat$session, dat$u_id),]
+  }
+  
   return(dat)
 }
 
