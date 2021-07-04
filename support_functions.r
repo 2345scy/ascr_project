@@ -9,7 +9,7 @@ p.dot.defaultD = function(points = NULL, traps = NULL, detfn = NULL, ss_dir = NU
     dirs <- (0:(n.quadpoints - 1))*2*pi/n.quadpoints
     probs <- numeric(n.points)
     ## Integrating over all possible directions.
-    ## TODO: Write all this in C++.
+    ## in the future: Write all this in C++.
     for (i in 1:n.quadpoints){
       dir <- dirs[i]
       bearings <- bearings(traps, points)
@@ -57,7 +57,7 @@ formula_separate = function(foo, var.m){
   #between variables from mask level and other levels
   for(i in 1:length(col_names)){
     tem.name = col_names[[i]]
-    tem.foo = as.formula(paste0('psedudo_y~',tem.name))
+    tem.foo = as.formula(paste0('gam.resp~',tem.name))
     tem.foo_vars = all.vars(tem.foo[[3]])
     if(!(sum(tem.foo_vars %in% var.m) %in% c(0, length(tem.foo_vars)))){
       stop("interaction between variables from mask level and other level is not supported.")
@@ -67,7 +67,7 @@ formula_separate = function(foo, var.m){
   #one for mask level and other one for other levels
   for(i in 1:length(row_names)){
     tem.name = row_names[[i]]
-    tem.foo = as.formula(paste0('psedudo_y~',tem.name))
+    tem.foo = as.formula(paste0('gam.resp~',tem.name))
     tem.foo_vars = all.vars(tem.foo[[3]])
     row_names[[i]] = tem.foo_vars
   }
@@ -319,16 +319,35 @@ default.bounds = function(param){
 link.fun = function(link, value){
   if(link == "identity") return(value)
   if(link == "log"){
-    if(value == 0) value = value + 1e-20
+    if(any(value == 0)) value = value + 1e-20
     
     return(log(value))
   }
   
   if(link == "logit"){
-    if(value == 0) value = value + 1e-15
-    if(value == 1) value = value - 1e-15
+    if(any(value == 0)) value = value + 1e-15
+    if(any(value == 1)) value = value - 1e-15
     
     return(log(value/(1 - value)))
+  }
+}
+
+unlink.fun = function(link, value){
+  if(link == "identity") return(value)
+  if(link == "log") return(round(exp(value), 19))
+  if(link == "logit") return(round(exp(value)/(1 + exp(value)), 14))
+}
+
+delta.fun = function(link, sd, est){
+  if(link == "identity") return(sd)
+  
+  #for link == 'log', we are calculating std(exp(x)) with x_hat = est and x_sd = sd
+  if(link == "log") return(sd * exp(est))
+  
+  #for link == 'logit' we are calculating std(exp(x)/(exp(x) + 1))
+  if(link == 'logit'){
+    fx_grad = exp(est)/(exp(est) + 1) ^ 2
+    return(sd * fx_grad)
   }
 }
 
@@ -366,6 +385,10 @@ sort.data = function(dat, name){
   
   if(name == "index_traps_uid"){
     dat = dat[order(dat$session, dat$u_id),]
+  }
+  
+  if(name == "data_u_bin"){
+    dat = dat[order(dat$session, dat$u_id, dat$trap),]
   }
   
   return(dat)
@@ -437,17 +460,23 @@ numeric_het_method = function(het_method){
   }
 }
 
-cal_n_det = function(data.full){
-  if("animal_ID" %in% colnames(data.full)){
-    tem = aggregate(data.full$bincapt, list(session = data.full$session,
-                                            animal_ID = data.full$animal_ID,
-                                            ID = data.full$ID), sum)
+cal_n_det = function(data, is_uid = FALSE){
+  if("animal_ID" %in% colnames(data)){
+    tem = aggregate(data$bincapt, list(session = data$session,
+                                            animal_ID = data$animal_ID,
+                                            ID = data$ID), sum)
     tem = tem[order(tem$session, tem$animal_ID, tem$ID),]
     return(tem$x)
   } else {
-    tem = aggregate(data.full$bincapt, list(session = data.full$session,
-                                            ID = data.full$ID), sum)
-    tem = tem[order(tem$session, tem$ID),]
+    if(is_uid){
+      tem = aggregate(data$bincapt, list(session = data$session,
+                                              u_id = data$u_id), sum)
+      tem = tem[order(tem$session, tem$u_id),]
+    } else {
+      tem = aggregate(data$bincapt, list(session = data$session,
+                                              ID = data$ID), sum)
+      tem = tem[order(tem$session, tem$ID),]
+    }
     return(tem$x)
   }
   
@@ -457,7 +486,6 @@ cal_n_det = function(data.full){
 extract_unique_id = function(data.full, dims){
   dat = subset(data.full,!is.na(ID))
   data.u.id.match = data.frame(session = numeric(0), ID = numeric(0), u_id = numeric(0))
-  data.u.bin = data.frame(session = numeric(0), u_id = numeric(0), trap = numeric(0), bincapt = numeric(0))
   n.u.id = numeric(0)
   n.u.id.session = numeric(dims$n.sessions)
   for(s in 1:dims$n.sessions){
@@ -477,10 +505,68 @@ extract_unique_id = function(data.full, dims){
       data.u.id.match = rbind(data.u.id.match, tem)
       u.bin = data.frame(session = s, u_id = rep(1:nrow(u.bin), each = dims$n.traps[s]), 
                             trap = rep(1:dims$n.traps[s], nrow(u.bin)), bincapt = as.vector(t(u.bin)))
-      data.u.bin = rbind(data.u.bin, u.bin)
     }
   }
-
   
-  return(list(data_u_bin = data.u.bin, u_id_match = data.u.id.match, n_id_uid = n.u.id, n_uids = n.u.id.session))
+  data.u.bin = merge(data.full, data.u.id.match, by = c('session', "ID"))
+  #firstly sort it as data.full and record the duplicated indices based on "session-uid-trap"
+  #this bool vector will be used outside of this function to create design matrices from the one we have
+  #already built from data.full
+  data.u.bin = sort.data(data.u.bin, "data.full")
+  dup = duplicated(data.u.bin[,c('session', 'u_id', 'trap')])
+  
+  data.u.bin = data.u.bin[!dup, -which(colnames(data.u.bin) %in% c('bearing','dist','ss', 
+                                                                   'toa', "ID", 'mrds_x', 'mrds_y'))]
+  
+  return(list(data_u_bin = data.u.bin, uid_dup_data_full = dup, u_id_match = data.u.id.match, 
+              n_id_uid = n.u.id, n_uids = n.u.id.session))
+}
+
+cus_log = function(x){
+  x <- pmax(x, .Machine$double.eps)
+  return(log(x))
+}
+
+cus_logit = function(x){
+  x <- pmax(x, .Machine$double.eps)
+  x <- pmin(x, 1 - .Machine$double.eps)
+  return(log(x / (1 - x)))
+}
+
+cus_identity = function(x){
+  return(x)
+}
+
+cus_log_unlink = .Primitive('exp')
+
+cus_logit_unlink = function(x){
+  return(exp(x)/(exp(x) + 1))
+} 
+
+scale.closure = function(var.ex.info){
+  #although named as "numeric.cov" here, but for numeric covariate under scale = FALSE
+  #this "numeric.cov" will still be FALSE
+  numeric.cov = !sapply(var.ex.info, is.null)
+  cov.names = names(var.ex.info)
+
+  out.fun = function(covariates){
+    cov.names.new <- names(covariates)
+    out <- covariates
+    for (i in cov.names){
+      if (numeric.cov[i] & (i %in% cov.names.new)){
+        out[, i] <- (out[, i] - var.ex.info[[i]][1])/var.ex.info[[i]][2]
+      }
+    }
+
+    return(out)
+  }
+
+  return(out.fun)
+}
+
+#extract values without name from a vector
+
+val = function(vec){
+  names(vec) = NULL
+  return(vec)
 }
