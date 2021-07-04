@@ -7,16 +7,16 @@ test_data = function(model_type){
     captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
     
     traps <<- example.data$traps
-    masks <<- example.data$mask
+    mask <<- example.data$mask
     
     par.extend <<- NULL
     ss.opts <<- NULL
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- NULL
-    bounds <<- NULL
-    sv_list <<- NULL
-    fix_list <<- NULL
+    bounds_input <<- NULL
+    sv_input <<- NULL
+    fix_input <<- NULL
     local_input <<- FALSE
     sound.speed <<- 331
   } else if (model_type == "joint bearing/dist fitting"){
@@ -27,15 +27,15 @@ test_data = function(model_type){
     captures$dist = as.vector(example.data$capt[['dist']])
     captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
     traps <<- example.data$traps
-    masks <<- example.data$mask
+    mask <<- example.data$mask
     par.extend <<- NULL
     ss.opts <<- NULL
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- NULL
-    bounds <<- NULL
-    sv_list <<- NULL
-    fix_list <<- list(g0 = 1)
+    bounds_input <<- NULL
+    sv_input <<- NULL
+    fix_input <<- list(g0 = 1)
     local_input <<- FALSE
     sound.speed <<- 331
   } else if (model_type == "simple fitting -- hazard halfnormal"){
@@ -44,16 +44,16 @@ test_data = function(model_type){
     captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
     
     traps <<- example.data$traps
-    masks <<- example.data$mask
+    mask <<- example.data$mask
     
     par.extend <<- NULL
     ss.opts <<- NULL
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- "hhn"
-    bounds <<- NULL
-    sv_list <<- NULL
-    fix_list <<- NULL
+    bounds_input <<- NULL
+    sv_input <<- NULL
+    fix_input <<- NULL
     local_input <<- FALSE
     sound.speed <<- 331
   } else if (model_type == "simple fitting -- hazard rate"){
@@ -62,16 +62,16 @@ test_data = function(model_type){
     captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
     
     traps <<- example.data$traps
-    masks <<- example.data$mask
+    mask <<- example.data$mask
     
     par.extend <<- NULL
     ss.opts <<- NULL
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- "hr"
-    bounds <<- NULL
-    sv_list <<- list(z = 5)
-    fix_list <<- NULL
+    bounds_input <<- NULL
+    sv_input <<- list(z = 5)
+    fix_input <<- NULL
     local_input <<- FALSE
     sound.speed <<- 331
   } else if (model_type == "bearing fitting"){
@@ -81,15 +81,15 @@ test_data = function(model_type){
     captures$bearing = as.vector(example.data$capt[["bearing"]])
     captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
     traps <<- example.data$traps
-    masks <<- example.data$mask
+    mask <<- example.data$mask
     par.extend <<- NULL
     ss.opts <<- NULL
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- NULL
-    bounds <<- NULL
-    sv_list <<- NULL
-    fix_list <<- list(g0 = 1)
+    bounds_input <<- NULL
+    sv_input <<- NULL
+    fix_input <<- list(g0 = 1)
     local_input <<- FALSE
     sound.speed <<- 331
   } else if (model_type == "dist fitting"){
@@ -99,15 +99,15 @@ test_data = function(model_type){
     captures$dist = as.vector(example.data$capt[['dist']])
     captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
     traps <<- example.data$traps
-    masks <<- example.data$mask
+    mask <<- example.data$mask
     par.extend <<- NULL
     ss.opts <<- NULL
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- NULL
-    bounds <<- NULL
-    sv_list <<- NULL
-    fix_list <<- list(g0 = 1)
+    bounds_input <<- NULL
+    sv_input <<- NULL
+    fix_input <<- list(g0 = 1)
     local_input <<- FALSE
     sound.speed <<- 331
   } else if (model_type == "toa fitting"){
@@ -117,15 +117,15 @@ test_data = function(model_type){
     captures$toa = as.vector(example.data$capt[["toa"]])
     captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
     traps <<- example.data$traps
-    masks <<- example.data$mask
+    mask <<- example.data$mask
     par.extend <<- NULL
     ss.opts <<- NULL
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- NULL
-    bounds <<- NULL
-    sv_list <<- NULL
-    fix_list <<- list(g0 = 1)
+    bounds_input <<- NULL
+    sv_input <<- NULL
+    fix_input <<- list(g0 = 1)
     local_input <<- FALSE
     sound.speed <<- 331
   } else if (model_type == "ss fitting"){
@@ -134,15 +134,15 @@ test_data = function(model_type){
     captures$ss = as.vector(example.data$capt[["ss"]])
     captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
     traps <<- example.data$traps
-    masks <<- example.data$mask
+    mask <<- example.data$mask
     par.extend <<- NULL
     ss.opts <<- list(cutoff = 60)
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- NULL
-    bounds <<- NULL
-    sv_list <<- list(b0.ss = 90, b1.ss = 4, sigma.ss = 10)
-    fix_list <<- NULL
+    bounds_input <<- NULL
+    sv_input <<- list(b0.ss = 90, b1.ss = 4, sigma.ss = 10)
+    fix_input <<- NULL
     local_input <<- FALSE
     sound.speed <<- 331
   } else if (model_type == "joint ss/toa fitting"){
@@ -152,15 +152,15 @@ test_data = function(model_type){
     captures$toa = as.vector(example.data$capt[["toa"]])
     captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
     traps <<- example.data$traps
-    masks <<- example.data$mask
+    mask <<- example.data$mask
     par.extend <<- NULL
     ss.opts <<- list(cutoff = 60)
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- NULL
-    bounds <<- NULL
-    sv_list <<- list(b0.ss = 90, b1.ss = 4, sigma.ss = 10)
-    fix_list <<- NULL
+    bounds_input <<- NULL
+    sv_input <<- list(b0.ss = 90, b1.ss = 4, sigma.ss = 10)
+    fix_input <<- NULL
     local_input <<- FALSE
     sound.speed <<- 331
   } else if (model_type == "Inhomogeneous density estimation"){
@@ -169,7 +169,7 @@ test_data = function(model_type){
     captures <<- captures[as.logical(as.vector(example.data$capt[["bincapt"]])),]
     
     traps <<- example.data$traps
-    masks <<- example.data$mask
+    mask <<- example.data$mask
     
     df <- data.frame(x1 = example.data$mask[, 1]/1000, y1 = example.data$mask[, 2]/1000)
     
@@ -178,9 +178,9 @@ test_data = function(model_type){
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- NULL
-    bounds <<- NULL
-    sv_list <<- NULL
-    fix_list <<- list(g0 = 1)
+    bounds_input <<- NULL
+    sv_input <<- NULL
+    fix_input <<- list(g0 = 1)
     local_input <<- FALSE
     sound.speed <<- 331
     
@@ -201,16 +201,16 @@ test_data = function(model_type){
 
     
     traps <<- multi.example.data$traps
-    masks <<- multi.example.data$mask
+    mask <<- multi.example.data$mask
     
     par.extend <<- NULL
     ss.opts <<- NULL
     survey.length <<- NULL
     cue.rates <<- NULL
     detfn <<- NULL
-    bounds <<- NULL
-    sv_list <<- list(kappa = 100)
-    fix_list <<- NULL
+    bounds_input <<- NULL
+    sv_input <<- list(kappa = 100)
+    fix_input <<- NULL
     local_input <<- FALSE
     sound.speed <<- 331
   }

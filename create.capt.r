@@ -31,7 +31,7 @@ create.capt <- function(captures, traps = NULL, n.traps = NULL, n.sessions = NUL
 
   if(!is.null(traps)){
     #generate n.sessions based on "traps" data
-    tem.n.sessions.trap = ifelse(class(traps) == 'list', length(traps), 1)
+    tem.n.sessions.trap = ifelse(is(traps, 'list'), length(traps), 1)
     
     #length of traps is 1 is a special case
     if(tem.n.sessions.trap == 1){
@@ -81,9 +81,9 @@ create.capt <- function(captures, traps = NULL, n.traps = NULL, n.sessions = NUL
   
   if(!is.null(traps)){
     #if 'traps' is provided deal with the special case that its length is 1
-    if(any(class(traps) == 'list' & length(traps) == 1, is.matrix(traps), is.data.frame(traps))){
+    if(any(is(traps, 'list') & length(traps) == 1, is.matrix(traps), is.data.frame(traps))){
       tem.traps = vector('list', n.sessions)
-      if(class(traps) == 'list'){
+      if(is(traps, 'list')){
         for(i in 1:n.sessions) tem.traps[[i]] = traps[[1]]
       } else {
         for(i in 1:n.sessions) tem.traps[[i]] = traps
@@ -120,7 +120,7 @@ create.capt <- function(captures, traps = NULL, n.traps = NULL, n.sessions = NUL
   is.mrds <- !is.null(mrds.locs)
   
   if (is.mrds){
-    if(class(mrds.locs) == "list") {
+    if(is(mrds.locs, "list")) {
       if(n.sessions != length(mrds.locs)) {
         msg = paste0("mrds.locs must be a list with a length of n.sessions: ", n.sessions)
         stop(msg)
