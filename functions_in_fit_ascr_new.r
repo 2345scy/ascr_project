@@ -1,4 +1,3 @@
-
 capture.fun = function(capt){
   all.types <- c("bearing", "dist", "ss", "toa")
 
@@ -552,7 +551,9 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
     }
 
     scale.covs = scale.closure(var.ex.info)
-
+    
+    gam_output = vector('list', length = length(name.extend.par))
+    names(gam_output) = name.extend.par
     #check 'model'
     
     #deal the extend parameters one by one
@@ -576,10 +577,16 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
       foo_full_var = all.vars(foo_full[[3]])
       foo_mask_var = all.vars(foo_mask[[3]])
       
+      gam_output[[i]] = vector('list', 2)
+      names(gam_output[[i]]) = c('gam_non_mask', 'gam_mask')
+      
       if(length(foo_full_var) > 0){
         #avoid any NA
         tem = as.data.frame(lapply(data.par.non.mask[, foo_full_var, drop = FALSE], is.na), stringsAsFactors = FALSE)
         index = apply(tem, 1, any)
+        if(sum(index) > 0){
+          warning(paste0("NA appears in covariates for parameter ", i, ", a review on the data is recommended."))
+        }
         tem.data = subset(data.par.non.mask, !index)
         tem.data[['gam.resp']] = 1
         
@@ -594,7 +601,9 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
           }
         }
         
-        design.matrix = gam(foo_full, data = tem.data, fit = FALSE)$X
+        tem_model = gam(foo_full, data = tem.data, fit = FALSE)
+        gam_output[[i]][['gam_non_mask']] = tem_model
+        design.matrix = tem_model$X
         n_col_full = ncol(design.matrix)
         design.matrix = as.data.frame(design.matrix, stringsAsFactors = FALSE)
         colnames(design.matrix) = paste(i, "_", colnames(design.matrix), sep = " ")
@@ -619,6 +628,9 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
       if(length(foo_mask_var) > 0){
         tem = as.data.frame(lapply(data.par.mask[, foo_mask_var, drop = FALSE], is.na), stringsAsFactors = FALSE)
         index = apply(tem, 1, any)
+        if(sum(index) > 0){
+          warning(paste0("NA appears in covariates for parameter ", i, ", a review on the data is recommended."))
+        }
         tem.data = subset(data.par.mask, !index)
         tem.data[['gam.resp']] = 1
         
@@ -634,12 +646,10 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
         }
         
         #delete the first column, which is intercept
-        if(i == 'D'){
-          fgam = gam(foo_mask, data = tem.data, fit = FALSE)
-          design.matrix = fgam$X[, -1, drop = FALSE]
-        } else {
-          design.matrix = gam(foo_mask, data = tem.data, fit = FALSE)$X[, -1, drop = FALSE]
-        }
+        tem_model = gam(foo_mask, data = tem.data, fit = FALSE)
+        gam_output[[i]][['gam_mask']] = tem_model
+        if(i == 'D') fgam = tem_model
+        design.matrix = tem_model$X[, -1, drop = FALSE]
         n_col_mask = ncol(design.matrix)
         design.matrix = as.data.frame(design.matrix, stringsAsFactors = FALSE)
         colnames(design.matrix) = paste(i, "_", colnames(design.matrix), sep = " ")
@@ -747,7 +757,8 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
   
   
   return(list(data.full = data.full, data.mask = data.mask, data.par = df.par, is.scale = is.scale,
-              name.extend.par = name.extend.par, fgam = fgam, scale.covs = scale.covs))
+              name.extend.par = name.extend.par, fgam = fgam, gam_output= gam_output, 
+              scale.covs = scale.covs))
 }
 
 
@@ -1112,7 +1123,7 @@ param.detfn.fun = function(sv, fix, bounds, name.extend.par, detfn, data.full, d
     }
   } else {
     if("ss" %in% bucket_info){
-      if(detfn != 'ss') {
+      if(detfn != 'ss'){
         warning('signal strenth is provided, therefore the specified "detfn" is ignored')
       }
       
@@ -1126,7 +1137,7 @@ param.detfn.fun = function(sv, fix, bounds, name.extend.par, detfn, data.full, d
       
     } else {
       if(detfn == 'ss'){
-        warning('signal strenth is not provided, therefore the specified "detfn" is ignored')
+        warning('signal strenth is not provided, therefore the specified "detfn" is replaced to "hn" (half normal),')
         detfn = 'hn'
       } else {
         if(!detfn %in% c('hn', 'hhn', 'hr', 'th', 'lth')){
@@ -1402,21 +1413,22 @@ param.detfn.fun = function(sv, fix, bounds, name.extend.par, detfn, data.full, d
 
 
 
-output = function(data.par, data.full, data.mask, param.og, param.og.4cpp, o, opt, name.fixed.par, name.extend.par, dims, DX.full,
-                  DX.mask, fix.input, bucket_info, cue.rates, par.extend, arg.input, fgam, scale.covs, is.scale){
+output = function(data.par, data.full, data.traps, data.mask, data.dists.thetas, detfn, param.og, param.og.4cpp, o, opt, 
+                  name.fixed.par, name.extend.par, dims, DX.full, DX.mask, fix.input, bucket_info, cue.rates, mu.rates, A, 
+                  sound.speed, par.extend, arg.input, fgam, gam_output, scale.covs, is.scale, ss.link, cutoff){
   ###################################################################################################################
   #sort out output for the function
   out = vector('list', 36)
-  
   names(out) = c("fn", "coefficients", "coeflist", "se", "loglik", "maxgrad", "cor", "vcov", "npar", "npar_re",
                  "npar_sdrpt", "npar_rep", "npar_total", "hes", "eratio", "D.mask", "mm.ihd", "args", "n.sessions",
                  "fit.types", "infotypes", "detpars", "suppars", "D.betapars", "phases", "par.links", "par.unlinks",
                  "fit.ihd", "re.detfn", "fit.freqs", "first.calls", "scale.covs", "model.formula", "fgam", "all.covariates", 
                  "output.tmb")
-  
   #create output for TMB model
-  out[['output.tmb']] = vector('list', 8)
-  names(out[['output.tmb']]) = c('coef_link', 'se_link', 'esa', 'DX', 'param.og', 'param.extend', 'param.fix', 'param.info.table')
+  out[['output.tmb']] = vector('list', 20)
+  names(out[['output.tmb']]) = c('coef_link', 'se_link', 'esa', 'DX', 'detfn', 'param.og', 'param.extend', 'param.fix', 
+                                 'param.info.table', 'data.traps', 'data.full', 'data.mask', 'data.dists.thetas', 'dims',
+                                 'avg_cue_rates', 'sound.speed', 'area_unit', 'ss.link', 'cutoff', 'gam_output')
   
   #give an index to each parameter, to make it easier to find it in "data.par"
   par.id = 1:nrow(data.par)
@@ -1450,6 +1462,7 @@ output = function(data.par, data.full, data.mask, param.og, param.og.4cpp, o, op
   #of parameters are the same as TMB model, and "esa" is not in "param.og"
   #if nothing goes wrong, 'name.fited.pars" shoule be exactly the same with "param.with.esa"
   name.fited.pars = unique(names(o$value))
+  name.fited.pars = gsub("_", "\\.", name.fited.pars)
   name_output = vector('list', length(name.fited.pars))
   names(name_output) = name.fited.pars
   
@@ -1580,6 +1593,8 @@ output = function(data.par, data.full, data.mask, param.og, param.og.4cpp, o, op
     
     for(i in 1:dims$n.sessions){
       tem_name = paste0('D_mask[', i, ']')
+      #'D' is only session not trap extendable, we could take the first observation in each session
+      #only from 'data.full', which is tem_full below
       out$coeflist[[tem_name]] = tem_full[which(data.full$session ==i)[1]] + 
         tem_mask[which(data.mask$session == i)]
       out$coeflist[[tem_name]] = unlink.fun(data.par[par.id['D'], 'link'],
@@ -1662,8 +1677,18 @@ output = function(data.par, data.full, data.mask, param.og, param.og.4cpp, o, op
   out[['output.tmb']][['param.extend']] = name.extend.par
   out[['output.tmb']][['param.fix']] = name.fixed.par
   out[['output.tmb']][['param.info.table']] = data.par
-  
-  
+  out[['output.tmb']][['data.traps']] = data.traps
+  out[['output.tmb']][['dims']] = dims
+  out[['output.tmb']][['area_unit']] = A
+  out[['output.tmb']][['avg_cue_rates']] = mu.rates
+  out[['output.tmb']][['data.full']] = data.full
+  out[['output.tmb']][['data.mask']] = data.mask
+  out[['output.tmb']][['data.dists.thetas']] = data.dists.thetas
+  out[['output.tmb']][['detfn']] = detfn
+  out[['output.tmb']][['ss.link']] = ss.link
+  out[['output.tmb']][['cutoff']] = cutoff
+  out[['output.tmb']][['sound.speed']] = sound.speed
+  out[['output.tmb']][['gam_output']] = gam_output
   ######################################################################################################
   #the 5th component: "loglik"
   out$loglik = -1 * opt$objective
@@ -1703,7 +1728,7 @@ output = function(data.par, data.full, data.mask, param.og, param.og.4cpp, o, op
   ######################################################################################################
   #The 15th component: 'eratio'
   #obtain all estimated values excluding 'esa'
-  tem = o$value[which(names(o$value) != 'esa')]
+  tem = o$value[which(!names(o$value) %in% c('esa', name.fixed.par))]
   out$eratio = max(abs(o$gradient.fixed) / abs(tem))
   
   

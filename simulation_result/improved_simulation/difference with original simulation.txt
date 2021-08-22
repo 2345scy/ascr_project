@@ -1,0 +1,2 @@
+1, sample the location of each call randomly from each mask
+2, sample the number of calls from a Poisson distribution with average cue rate as lambda

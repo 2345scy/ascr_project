@@ -1,0 +1,1 @@
+from seed 1 to seed 100, there are 12 simulations that the model didn't converge.

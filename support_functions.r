@@ -544,14 +544,14 @@ cus_logit_unlink = function(x){
 } 
 
 scale.closure = function(var.ex.info){
-  #although named as "numeric.cov" here, but for numeric covariate under scale = FALSE
+  #although named as "numeric.cov" here, but for numeric covariates under scale = FALSE
   #this "numeric.cov" will still be FALSE
   numeric.cov = !sapply(var.ex.info, is.null)
   cov.names = names(var.ex.info)
 
-  out.fun = function(covariates){
-    cov.names.new <- names(covariates)
-    out <- covariates
+  out.fun = function(covariates_df){
+    cov.names.new <- colnames(covariates_df)
+    out <- covariates_df
     for (i in cov.names){
       if (numeric.cov[i] & (i %in% cov.names.new)){
         out[, i] <- (out[, i] - var.ex.info[[i]][1])/var.ex.info[[i]][2]
@@ -569,4 +569,22 @@ scale.closure = function(var.ex.info){
 val = function(vec){
   names(vec) = NULL
   return(vec)
+}
+
+#calculate bearings
+bearings_by_vec = function(trap_x, trap_y, mask_x, mask_y){
+  n = length(trap_x)
+  if(length(trap_y)!=n | length(mask_x)!=n | length(mask_y)!=n){
+    stop("different length coordinates.")
+  }
+  
+  x_diff = mask_x - trap_x
+  y_diff = mask_y - trap_y
+  
+  output = atan(x_diff / y_diff)
+  
+  output = ifelse(y_diff < 0, output + pi, output)
+  output = ifelse(y_diff >=0 & x_diff < 0, output + 2 * pi, output)
+  
+  return(output)
 }

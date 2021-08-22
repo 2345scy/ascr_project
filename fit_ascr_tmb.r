@@ -1,4 +1,4 @@
-fit.ascr.tmb = function(capt, traps, mask, detfn = 'hn', sv = NULL, bounds = NULL, fix = NULL,
+fit.ascr.tmb = function(capt, traps, mask, detfn = NULL, sv = NULL, bounds = NULL, fix = NULL,
                         ss.opts = NULL, cue.rates = NULL, survey.length = NULL, sound.speed = 330,
                         local = FALSE, par.extend = NULL, ...){
     
@@ -35,6 +35,9 @@ fit.ascr.tmb = function(capt, traps, mask, detfn = 'hn', sv = NULL, bounds = NUL
     bucket_info = o.mask$bucket_info
     #keep the old version of output temporarily, might be useful later
     mask = o.mask$mask
+	
+	  arg.input[['mask']] = mask
+	
     #dists = o.mask$dists
     A = o.mask$A
     buffer = o.mask$buffer
@@ -57,6 +60,7 @@ fit.ascr.tmb = function(capt, traps, mask, detfn = 'hn', sv = NULL, bounds = NUL
     name.extend.par = o.par.extend$name.extend.par
     #fgam is for compatibility with ADMB model
     fgam = o.par.extend$fgam
+    gam_output = o.par.extend$gam_output
     #scale.covs is used for scaling new input of covariates (if it is scaled in modelling)
     scale.covs = o.par.extend$scale.covs
     is.scale = o.par.extend$is.scale
@@ -76,6 +80,9 @@ fit.ascr.tmb = function(capt, traps, mask, detfn = 'hn', sv = NULL, bounds = NUL
                     bucket_info = bucket_info, dims = dims)
     
     survey.length = o.CR_SL$survey.length
+	  #update the survey length to the input, thus this will be included in the output as well
+	  arg.input[['survey.length']] = survey.length
+	
     bucket_info = o.CR_SL$bucket_info
     mu.rates = o.CR_SL$mu.rates
     
@@ -219,8 +226,7 @@ fit.ascr.tmb = function(capt, traps, mask, detfn = 'hn', sv = NULL, bounds = NUL
                  cutoff = cutoff,
                  #code of detfn_index:
                  #1:hn, 2:hhn, 3:hr, 4:th, 5:lth, 6:ss, 7:ss_dir, 8:ss_het
-                 #detfn_index = numeric_detfn(detfn),
-                 #temporarily for test purpose~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                 #temporarily ss_dir and ss_het are not supported
                  detfn_index = numeric_detfn(detfn),
                  
                  
@@ -325,11 +331,35 @@ fit.ascr.tmb = function(capt, traps, mask, detfn = 'hn', sv = NULL, bounds = NUL
     obj$hessian <- TRUE
     opt = nlminb(obj$par, obj$fn, obj$gr)
     o = sdreport(obj)
-
-    out = output(data.par = data.par, data.full = data.full, data.mask = data.mask, param.og = param.og, param.og.4cpp = param.og.4cpp,
-                 o = o, opt = opt, name.fixed.par = name.fixed.par, name.extend.par = name.extend.par, dims = dims, DX.full = DX.full,
-                 DX.mask = DX.mask, fix.input = fix.input, bucket_info = bucket_info, cue.rates = cue.rates,par.extend = par.extend,
-                 arg.input = arg.input, fgam = fgam, scale.covs = scale.covs, is.scale = is.scale)
+    out = output(data.par = data.par,
+                 data.full = data.full,
+                 data.traps = data.traps,
+                 data.mask = data.mask, 
+                 data.dists.thetas = data.dists.thetas,
+                 detfn = detfn,
+                 param.og = param.og,
+                 param.og.4cpp = param.og.4cpp, 
+                 o = o,
+                 opt = opt,
+                 name.fixed.par = name.fixed.par,
+                 name.extend.par = name.extend.par, 
+                 dims = dims,
+                 DX.full = DX.full,
+                 DX.mask = DX.mask,
+                 fix.input = fix.input,
+                 bucket_info = bucket_info, 
+                 cue.rates = cue.rates,
+                 mu.rates = mu.rates,
+                 A = A,
+                 sound.speed = sound.speed,
+                 par.extend = par.extend,
+                 arg.input = arg.input, 
+                 fgam = fgam,
+                 gam_output = gam_output,
+                 scale.covs = scale.covs,
+                 is.scale = is.scale,
+                 ss.link = ss.link,
+                 cutoff = cutoff)
 
   return(out)
 }
