@@ -186,7 +186,7 @@ show_detfn_tmb <- function(fit, new_covariates = NULL, param_extend_skip = NULL,
   if (!add){
     plot.new()
     old.par <- par(xaxs = "r", yaxs = "r")
-    plot.window(xlim = xlim, ylim = ylim)
+    plot.window(xlim = xlim, ylim = ylim, xaxs = 'i')
     axis(1)
     axis(2)
     box()

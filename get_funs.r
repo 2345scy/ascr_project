@@ -119,9 +119,38 @@ get_buffer = function(fit){
   return(output)
 }
 
-######################################################################################
-#get detection history, the key component of simulation
-get_det_history = function(fit, data_density){
+
+
+get_sound_speed = function(fit){
+  output = fit$output.tmb$sound.speed
+  return(output)
+}
+
+get_fit_type = function(fit){
+  output = fit$fit.types
+  return(output)
+}
+
+get_gam = function(fit, param, which.level){
+  output = fit$output.tmb$gam_output[[param]]
+  output = output[[which.level]]
+  return(output)
+}
+
+get_DX_new_gam = function(mod, newdata){
+  newdata = newdata[, names(mod$var.summary), drop = FALSE]
+  newdata$gam.resp = 1
+  olddata = mod$mf
+  dat = rbind(olddata, newdata)
+  output = gam(mod$formula, data = dat, fit = FALSE)$X
+  output = output[(nrow(olddata) + 1):nrow(dat), , drop = FALSE]
+  return(output)
+}
+
+
+###########################################################################################################
+#simulate detection history, the key component of simulation
+sim_det_history = function(fit, data_density){
   source('support_functions.r', local = TRUE)
   source('detfn_tmb.r', local = TRUE)
   data_full = get_data_full(fit)
@@ -147,6 +176,12 @@ get_det_history = function(fit, data_density){
   param_name = param_name[-which(param_name == 'D')]
   
   dims = get_dims_tmb(fit)
+  
+  #survey length for each session
+  survey_length = get_survey_length(fit)
+  #average cue rate
+  avg_cue_rates = get_cue_rates(fit)
+  
   #because in the data.full, if one session has no detection
   #it will still record n.trap's rows, a special n.id is necessary
   n_ID_data_full = ifelse(dims$n.IDs == 0, 1, dims$n.IDs)
@@ -176,6 +211,7 @@ get_det_history = function(fit, data_density){
     #design matrix multiple parameter vector for non-mask level to get the
     #non-mask level part of parameters values 
     data_full_param_value[[i]] = tem_DX_full %*% tem_coef_full
+    
     #since 'ID' is not extendable, shrink this data set
     tem = data_full_param_value[!duplicated(data_full_param_value[, c('session', 'trap')]),
                                 c('session', 'trap', i)]
@@ -200,62 +236,28 @@ get_det_history = function(fit, data_density){
     if(link == 'logit') data_dist_theta[[i]] = exp(data_dist_theta[[i]]) / (exp(data_dist_theta[[i]]) + 1)
   }
   
-  #merge the distances, parameters values and simulated number of calls together
-  data_dist_theta = merge(data_dist_theta, data_density[,c('session', 'mask', 'n_calls')],
+  #merge the distances, parameters values and simulated number of animals together
+  data_dist_theta = merge(data_dist_theta, data_density[,c('session', 'mask', 'n_animals')],
                           by = c('session', 'mask'))
   
-  #shrink the data set by picking out the masks with no simulated call
-  data_capt = subset(data_dist_theta, data_dist_theta$n_calls != 0)
-  
-  #sort it firstly, in order to assign ID to each call after the "split" operation much easier
-  data_capt = data_capt[order(data_capt$session, data_capt$mask, data_capt$trap),]
-  
-  #for each n_call > 1, we need to split it to several identical individual call
-  tem_gt1 = subset(data_capt, data_capt$n_calls > 1)
-  tem_eq1 = subset(data_capt, data_capt$n_calls == 1)
-  
-  u_n_calls = unique(tem_gt1$n_calls)
-  
-  tem_gt1_list = vector('list', length(u_n_calls))
-  
-  for(i in 1:length(u_n_calls)){
-    #extract the part with n_calls equals this unique number of calls
-    tem = subset(tem_gt1, tem_gt1$n_calls == u_n_calls[i])
-    #repeat this part u_n_calls[i] times
-    tem_list = vector('list', u_n_calls[i])
-    for(j in 1:u_n_calls[i]) tem_list[[j]] = tem
-    tem_gt1_list[[i]] = do.call('rbind', tem_list)
-  }
-  
-  tem_gt1 = do.call('rbind', tem_gt1_list)
-  
-  data_capt = rbind(tem_gt1, tem_eq1)
-  #since all calls become individual calls, assign n_call to be 1
-  data_capt[['n_calls']] = 1
-  
-  
-  #remove useless objects
-  rm(tem_gt1)
-  rm(tem_eq1)
-  rm(tem)
-  rm(tem_list)
-  rm(tem_gt1_list)
-  
-  #since data is well sorted, we could easily assign ID to each call
-  data_capt[['ID']] = 0
-  for(s in 1:dims$n.sessions){
-    index_s = which(data_capt[['session']] == s)
-    data_capt[['ID']][index_s] = rep(seq(length(index_s) / dims$n.traps[s]), each = dims$n.traps[s])
-  }
+  #shrink the data set by picking out the masks with no simulated animal
+  data_capt = subset(data_dist_theta, data_dist_theta$n_animals != 0)
   
   #merge the coordination of each trap and each mask to this data frame
   data_capt = merge(data_capt, data_trap, by = c('session', 'trap'), all.x = TRUE)
   
   data_capt = merge(data_capt, data_mask, by = c('session', 'mask'), all.x = TRUE)
   
+  #sort it firstly, in order to assign ID to each call after the "split" operation much easier
+  data_capt = data_capt[order(data_capt$session, data_capt$mask, data_capt$trap),]
+  
 
+  #separate n_animals, e.g: if in one mask, the n_animals == 2, then duplicate this row 2 times
+  data_capt = split_item(data_capt, "n_animals")
+  
   tem_list = vector('list', dims$n.sessions)
   
+  #randomly allocate each animal inside the area of that mask point, and generate n_calls
   for(s in 1:dims$n.sessions){
     tem_capt = subset(data_capt, session == s)
     tem_mask = subset(data_mask, session == s)
@@ -273,10 +275,10 @@ get_det_history = function(fit, data_density){
     
     #re-calculate distance and theta
     tem_capt$dx = sqrt((tem_capt$trap_x - tem_capt$x) ^ 2 + 
-                          (tem_capt$trap_y - tem_capt$y) ^ 2)
+                         (tem_capt$trap_y - tem_capt$y) ^ 2)
     
     tem_capt$theta = bearings_by_vec(tem_capt$trap_x, tem_capt$trap_y,
-                                      tem_capt$x, tem_capt$y)
+                                     tem_capt$x, tem_capt$y)
     
     #about the theta part, there is one point needs attention. For e.g.,
     #when the original theta is 1.469693, then the new theta after taking
@@ -284,10 +286,44 @@ get_det_history = function(fit, data_density){
     #to be different, but if we take tan(theta), we could see they are
     #quite similar, one is 9.857147 and the other one is 9.931751
     
+    ##############################################################################
+    #then simulate n_calls
+    
+    #temporarily, we simplify the simulation of calls of one animal by using just
+    #a sample from a poisson distribution with only "average cue rate", this part
+    #may be more complicated in the future
+    
+    n_animals_vec = tem_capt[['n_animals']]
+    
+    if(fit$fit.freqs){
+      cue_rates = rpois(length(n_animals_vec), avg_cue_rates)
+    } else {
+      #if the original cue.rate input in the model fitting is "NULL" then it means
+      #we don't have the concept of "animal" and "calls" in the first place
+      #so we do not proceed with sampling number of calls, just fix it to be 1
+      cue_rates = 1
+    }
+    
+    #get number of calls for each mask
+    tem_capt[['n_calls']] = n_animals_vec * cue_rates * survey_length[s]
+    
     tem_list[[s]] = tem_capt
   }
   
   data_capt = do.call('rbind', tem_list)
+  
+  #then split n_calls just the same as splitting n_animals
+  data_capt = split_item(data_capt, "n_calls")
+  
+  
+  
+  #since data is well sorted, we could easily assign ID to each call
+  data_capt[['ID']] = 0
+  for(s in 1:dims$n.sessions){
+    index_s = which(data_capt[['session']] == s)
+    data_capt[['ID']][index_s] = rep(seq(length(index_s) / dims$n.traps[s]), each = dims$n.traps[s])
+  }
+  
   
   
   dx = data_capt[['dx']]
@@ -321,18 +357,11 @@ get_det_history = function(fit, data_density){
   return(data_capt)
 }
 
-get_sound_speed = function(fit){
-  output = fit$output.tmb$sound.speed
-  return(output)
-}
-
-get_fit_type = function(fit){
-  output = fit$fit.types
-  return(output)
-}
 
 
-get_extra_info = function(fit, data_capt){
+
+
+sim_extra_info = function(fit, data_capt){
   fit_types = get_fit_type(fit)
   #check which rows have detection, only simulate for those rows
   index_det = which(data_capt[['n_det']] > 0)
@@ -371,20 +400,4 @@ get_extra_info = function(fit, data_capt){
   }
   
   return(data_capt)
-}
-
-get_gam = function(fit, param, which.level){
-  output = fit$output.tmb$gam_output[[param]]
-  output = output[[which.level]]
-  return(output)
-}
-
-get_DX_new_gam = function(mod, newdata){
-  newdata = newdata[, names(mod$var.summary), drop = FALSE]
-  newdata$gam.resp = 1
-  olddata = mod$mf
-  dat = rbind(olddata, newdata)
-  output = gam(mod$formula, data = dat, fit = FALSE)$X
-  output = output[(nrow(olddata) + 1):nrow(dat), , drop = FALSE]
-  return(output)
 }

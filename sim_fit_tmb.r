@@ -4,10 +4,8 @@ simcapt_from_fit_tmb = function(fit){
   data_density = get_D_tmb(fit)
   #area for each mask
   area_unit = get_area_unit_tmb(fit)
-  #average cue rate
-  avg_cue_rates = get_cue_rates(fit)
-  #survey length for each session
-  survey_length = get_survey_length(fit)
+
+
   dims = get_dims_tmb(fit)
   
   #calculate lambda of each mask for poisson distribution
@@ -34,21 +32,14 @@ simcapt_from_fit_tmb = function(fit){
     
     tem = as.vector(rmultinom(1, pop_session, prob = lambda_unit_session))
     data_density[index_data_density_session, 'n_animals'] = tem
-    #temporarily, we simplify the simulation of calls of one animal by using just
-    #a sample from a poisson distribution with only "average cue rate", this part
-    #may be more complicated in the future
     
-    cue_rates = rpois(length(tem), avg_cue_rates)
-    
-    #get number of calls for each mask
-    data_density[index_data_density_session, 'n_calls'] = tem * cue_rates * survey_length[s]
   }
   
   #simulate capture history based on the simulated density and detection function
-  data_capt = get_det_history(fit, data_density)
+  data_capt = sim_det_history(fit, data_density)
   
   #simulate extra info (bearing, dist, ss, toa)
-  data_capt = get_extra_info(fit, data_capt)
+  data_capt = sim_extra_info(fit, data_capt)
   
   #take out the observations with no detection
   o = subset(data_capt, data_capt$n_det > 0)

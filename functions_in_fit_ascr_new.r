@@ -698,6 +698,7 @@ par.extend.fun = function(par.extend = par.extend, data.full = data.full, data.m
       param_distribution[[i]] = c(1, 0)
     }
     name.extend.par = NULL
+    gam_output = NULL
     #if nothing extended, scale.covs just return the input
     scale.covs = function(covariates) return(covariates)
   }
@@ -1706,7 +1707,15 @@ output = function(data.par, data.full, data.traps, data.mask, data.dists.thetas,
     if(i %in% name.fixed.par) tem[i] = list(NULL)
   }
   tem = do.call('c', tem)
-  out$vcov = o$cov.fixed
+  tem = c(tem, paste('esa', seq(dims$n.sessions), sep = "."))
+  #remove fixed parameters from cov matrix
+  if(length(name.fixed.par) > 0){
+    which_fixed = which(names(o$value) %in% name.fixed.par)
+    out$vcov = o$cov[-which_fixed, -which_fixed]
+  } else {
+    out$vcov = o$cov
+  }
+
   dimnames(out$vcov) = list(tem, tem)
   
   #convert the covariance matrix to correlation matrix

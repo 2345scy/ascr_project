@@ -588,3 +588,41 @@ bearings_by_vec = function(trap_x, trap_y, mask_x, mask_y){
   
   return(output)
 }
+
+
+#duplicate the rows with k times if a specific column is k
+#in order to split multiple animals/calls (item) from one row to multiple rows
+#used in simulation function "sim_det_history"
+split_item = function(dat, item){
+  #for each n_call/n_animal > 1, we need to split it to several identical individual call
+  tem_gt1 = subset(dat, dat[[item]] > 1)
+  
+  if(nrow(tem_gt1) > 0){
+    tem_eq1 = subset(dat, dat[[item]] == 1)
+    
+    u_n_items = unique(tem_gt1[[item]])
+    
+    tem_gt1_list = vector('list', length(u_n_items))
+    
+    for(i in 1:length(u_n_items)){
+      #extract the part with n_items equals this unique number of calls
+      tem = subset(tem_gt1, tem_gt1[[item]] == u_n_items[i])
+      #repeat this part u_n_items[i] times
+      tem_list = vector('list', u_n_items[i])
+      for(j in 1:u_n_items[i]) tem_list[[j]] = tem
+      tem_gt1_list[[i]] = do.call('rbind', tem_list)
+    }
+    
+    tem_gt1 = do.call('rbind', tem_gt1_list)
+    
+    output = rbind(tem_gt1, tem_eq1)
+    #since all calls become individual calls, assign the item to be 1
+    output[[item]] = 1
+  } else {
+    output = dat
+  }
+
+  
+  return(output)
+}
+

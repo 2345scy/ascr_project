@@ -28,7 +28,7 @@ source('test_data_preparation.r')
 #Inhomogeneous density estimation
 #Multi-session models
 test_data("Multi-session models")
-#short_name = "ihd"
+short_name = "mul_s_with_extension"
 
 #the par.extend below is for "Multi-session models"
 par.extend = list(data = list(session = data.frame(session = 1:2, weather = c('rain', 'sunny')),
@@ -80,9 +80,9 @@ for(i in 1:n.sim){
 sim_coef_agg = sim_result_agg(sim_coef_result)
 #sim_sd_agg = sim_result_agg(sim_sd_result)
 
-pre_fix = paste0("./simulation_result/improved_simulation/", short_name)
+pre_fix = paste0("./simulation_result/improved_simulation_ver2/", short_name)
 
-dir.create(pre_fix, showWarnings = FALSE)
+dir.create(pre_fix)
 
 sim_result_plot(sim_coef_agg, fit$output.tmb$coef_link, pre_fix)
 
@@ -96,7 +96,7 @@ sim_result_plot(sim_coef_agg, fit$output.tmb$coef_link, pre_fix)
 #########################################################################################
 
 #plot detection function
-
+source('detfn_tmb.r')
 #sample of multi-session with g0 and sigma extension
 
 #plot only intercept
@@ -107,7 +107,7 @@ new_data = data.frame(weather = 'rain', brand = 'c')
 show_detfn_tmb(fit, new_covariates = new_data)
 
 #plot with multiple sets of extension covariates 
-new_data = data.frame(weather = c('rain', 'sunny', 'rain'), brand = c('b', 'c', 'a'))
+new_data = data.frame(weather = c('rain', 'rain', 'rain'), brand = c('b', 'c', 'a'))
 show_detfn_tmb(fit, new_covariates = new_data)
 
 #plot with extension of sigma, but ignore the extension on g0

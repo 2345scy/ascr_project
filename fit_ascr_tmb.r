@@ -360,6 +360,7 @@ fit.ascr.tmb = function(capt, traps, mask, detfn = NULL, sv = NULL, bounds = NUL
                  is.scale = is.scale,
                  ss.link = ss.link,
                  cutoff = cutoff)
+    class(out) <- c("ascr_tmb", "ascr")
 
-  return(out)
+    return(out)
 }
