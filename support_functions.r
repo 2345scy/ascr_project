@@ -622,7 +622,125 @@ split_item = function(dat, item){
     output = dat
   }
 
-  
   return(output)
+}
+
+
+delta_method_ascr_tmb = function(cov_linked, param_values, link_funs = NULL, new_covariates = NULL,
+                                 name_og = NULL, name_extend = NULL, df_param = NULL,
+                                 gam.model.full = NULL, gam.output = NULL){
+  
+  #delta method, G(x) is a vector of n functions, where x is a vector of m variables
+  #then VAR(G(x)) = G'(x) %*% VAR(x) %*% t[G'(x)]
+  #VAR(x) is m*m matrix, G'(x) is n*m matrix, G'(x)[i, j] = d(g[i])/d(x[j])
+  
+  #In this case, m is always the n_rows or n_cols of the cov_linked, which is equal to length of param_values
+  m = length(param_values)
+  
+  #for simple case, no new covariates involved, in which case, "link_funs" should be provided
+  #otherwise, "new_covariates", "name_og", "object" will be used together
+  if(!is.null(link_funs)){
+    #in this case, G'(x) is a n*n diagonal matrix
+    n = length(link_funs)
+    G_grad = matrix(0, nrow = n, ncol = n)
+    for(i in 1:n){
+
+      link = link_funs[i]
+      x = param_values[i]
+      if(link == 'identity'){
+        G_grad[i, i] = 1
+      } else if(link == 'log'){
+        G_grad[i, i] = exp(x)
+      } else if(link == 'logit'){
+        G_grad[i, i] = exp(x)/(exp(x) + 1)^2
+      }
+
+    }
+    
+  } else {
+    if(nrow(new_covariates) != 1) stop('Only 1 row in new_covariates is accepted.')
+    #if "new_covariates" is provided, then we are going to calculate the covariance matrix
+    #for all original parameters used in this model, let "n" be length(unique(name_og))
+    #and the G'(x) will be a n * m matrix
+    unique_name_og = unique(name_og)
+    n = length(unique_name_og)
+    
+    G_grad = matrix(0, nrow = n, ncol = m)
+    
+    
+    for(i in 1:n){
+      #for each row, the funciont is G_i(x) = h^(-1)(t(w)x), where w is the covariates values
+      #x is parameters estimated values, h^(-1)(.) is reverse function of the link function
+      par_name = unique_name_og[i]
+      #extract the indices of this parameter in name_og, which is the
+      #original parameter names of each column of cov_linked
+      index_p = which(name_og == par_name)
+      x = param_values[index_p]
+      
+      
+      tem = subset(df_param, par == par_name)
+      link = tem[, 'link']
+      n_col_full = tem[, 'n_col_full']
+      n_col_mask = tem[, 'n_col_mask']
+      
+      #let w be the covariates value for each parameter
+      w = numeric(n_col_full + n_col_mask)
+      
+      if(length(w) != length(x)){
+        stop('Critical Error.')
+      }
+      
+      if(par_name %in% name_extend){
+        
+        if(n_col_full > 1){
+          gam.model = gam.output[[par_name]][["gam_non_mask"]]
+          w[1:n_col_full] = as.vector(get_DX_new_gam(gam.model, new_covariates))
+        } else {
+          w[1] = 1
+        }
+        
+        if(n_col_mask > 0){
+          gam.model = gam.output[[par_name]][["gam_mask"]]
+          tem = get_DX_new_gam(gam.model, new_covariates)
+          #get rid of the first column since the intercept is not here
+          tem = tem[, -1, drop = FALSE]
+          w[(n_col_full + 1):(n_col_full + n_col_mask)] = as.vector(tem)
+        }
+        
+      } else {
+        w = 1
+      }
+      
+      len_p = length(index_p)
+      
+      if(link == 'identity'){
+        for(j in 1:len_p){
+          G_grad[i, index_p[j]] = 1
+        }
+      } else if(link == 'log'){
+        common_component = exp(sum(w * x))
+        for(j in 1:len_p){
+          G_grad[i, index_p[j]] = common_component * w[j]
+        }
+      } else if(link == 'logit'){
+        common_component = exp(sum(w * x))
+        for(j in 1:len_p){
+          G_grad[i, index_p[j]] = common_component * w[j] / (common_component + 1) ^ 2
+        }
+      }
+      
+      
+    }
+    
+    
+  }
+  
+  #for test purpose
+  print('for test use only, display the G\'(x) matrix')
+  print(G_grad)
+  print('end of test display')
+  
+  return(G_grad %*% cov_linked %*% t(G_grad))
+  
 }
 

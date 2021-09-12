@@ -131,9 +131,21 @@ get_fit_type = function(fit){
   return(output)
 }
 
-get_gam = function(fit, param, which.level){
-  output = fit$output.tmb$gam_output[[param]]
-  output = output[[which.level]]
+get_gam = function(fit, param = NULL, which.level = NULL){
+  if(!is.null(param)){
+    output = fit$output.tmb$gam_output[[param]]
+    if(!is.null(which.level)){
+      output = output[[which.level]]
+    }
+  } else {
+    output = fit$output.tmb$gam_output
+    if(!is.null(which.level)){
+      for(i in names(output)){
+        output[[i]] = output[[i]][[which.level]]
+      }
+    }
+  }
+
   return(output)
 }
 

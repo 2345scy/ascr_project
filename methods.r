@@ -33,36 +33,52 @@ coef.ascr_tmb <- function(object, pars = "fitted", ...){
 
 
 
-vcov.ascr_tmb <- function(object, types = "linked", pars = NULL, newdata = NULL, ...){
-  source('get_funs.r')
-  if(types %in% c('all', 'fitted', 'linked', 'derived')) stop("Argument 'types' must be a subset of 'fitted', 'linked', 'derived', 'all'.")
+vcov.ascr_tmb <- function(object, types = "linked", pars = NULL, new_covariates = NULL, ...){
+  source('get_funs.r', local = TRUE)
+  source('support_functions.r', local = TRUE)
+  if(!types %in% c('all', 'fitted', 'linked', 'derived')) stop("Argument 'types' must be a subset of 'fitted', 'linked', 'derived', 'all'.")
   
-  if(!is.null(newdata) & (!"fitted" %in% types)) types = c(types, 'fitted')
+  if(!is.null(new_covariates) & (!"fitted" %in% types)) types = c(types, 'fitted')
   
   if ("all" %in% types){
     types <- c("fitted", "derived", "linked")
   }
-  
+  param_values_og = get_coef(object)
   cov_og = object$vcov
-  name_dim = gsub(" _ ", "\\.",colnames(object$vcov))
+  name_dim_og = colnames(cov_og)
+  name_dim = gsub(" _ ", "\\.",name_dim_og)
   which.derived = which(substr(name_dim, 1, 3) == 'esa')
   name_dim = name_dim[-which.derived]
+  name_dim_og = name_dim_og[-which.derived]
   cov_derived = cov_og[which.derived, which.derived, drop = FALSE]
   cov_linked = cov_og[-which.derived, -which.derived, drop = FALSE]
   
   name_extend = get_par_extend_name(object)
+  
+  
+  
+  if(is.null(name_extend) & !is.null(new_covariates)){
+    warning('No parameter is extended, argument "new_covariates" will be ignored.')
+    new_covariates = NULL
+  }
+  
   #the original name is needed, in "name_og", "D.(Intercept)", "D.x1", "D.xxx" will be regarded as 'D' only
   #and the same to the other extendable parameters
   name_og = character(length(name_dim))
   
-  #extract the link functions for all element in the covariance matrix
+  #extract the link functions for all element in the linked covariance matrix
+  #if new_covariates is provided, this "link_funs" will be useless as cov matrix of fitted and
+  #cov matrix of linked will have different dimentions
   df_param = get_data_param(object)
   link_funs = character(length(name_og))
-  
+  #extracted linked estimated values, the reason why not doing do.call('c', param_values_og)
+  #is that, the fixed parameters could screw this up
+  param_values = numeric(length(name_og))
   
   for(i in 1:length(name_dim)){
     tem = gsub("\\..+$", "", name_dim[i])
     name_og[i] = tem
+    param_values[i] = param_values_og[[tem]][name_dim_og[i]]
     if(!tem %in% name_extend){
       name_dim[i] = tem
       link_funs[i] = df_param[which(df_param$par == tem), 'link']
@@ -80,30 +96,33 @@ vcov.ascr_tmb <- function(object, types = "linked", pars = NULL, newdata = NULL,
     if(any(!pars %in% name_og)) stop("Argument 'pars' only accept parameters, which is not fixed, in this model.")
   }
   
+  #obtain the indices for the assigned "pars"
+  index_par = which(name_og %in% pars)
+  cov_linked = cov_linked[index_par, index_par, drop = FALSE]
+  link_funs = link_funs[index_par]
+  param_values = param_values[index_par]
   
   output = vector('list', length(types))
   names(output) = types
   
   for(type in types){
+
     
     if(type == "linked"){
-      index_par = which(name_og %in% pars)
-      output[type] = cov_linked[index_par, index_par, drop = FALSE]
+      output[[type]] = cov_linked
     } else if(type == 'derived'){
-      output[type] = cov_derived
+      output[[type]] = cov_derived
     } else if(type == 'fitted'){
-      #if 'newdata' is not provided, just keep the extended covariates as parameters with identity link function
-      if(is.null(newdata)){
-        #extract the covariance matrix for 'linked' and link functions for the assigned parameters only
-        index_par = which(name_og %in% pars)
-        link_funs = link_funs[index_par]
-        cov_linked = cov_linked[index_par, index_par, drop = FALSE]
-        
-        #to be continued...
-        
-        
+      #if 'new_covariates' is not provided, just keep the extended covariates as parameters with identity link function
+      if(is.null(new_covariates)){
+        output[[type]] = delta_method_ascr_tmb(cov_linked, param_values, link_funs = link_funs)
+        dimnames(output[[type]]) = dimnames(cov_linked)
       } else {
-        
+        gam.output = get_gam(object)
+        output[[type]] = delta_method_ascr_tmb(cov_linked, param_values, new_covariates = new_covariates,
+                                               name_og = name_og, name_extend = name_extend, df_param = df_param,
+                                               gam.output = gam.output)
+        dimnames(output[[type]]) = list(pars, pars)
       }
     }
   }

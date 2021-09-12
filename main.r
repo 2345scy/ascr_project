@@ -28,7 +28,7 @@ source('test_data_preparation.r')
 #Inhomogeneous density estimation
 #Multi-session models
 test_data("Multi-session models")
-short_name = "mul_s_with_extension"
+#short_name = "mul_s_with_extension"
 
 #the par.extend below is for "Multi-session models"
 par.extend = list(data = list(session = data.frame(session = 1:2, weather = c('rain', 'sunny')),
