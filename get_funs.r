@@ -19,6 +19,11 @@ get_D_tmb = function(fit){
   return(output)
 }
 
+get_esa = function(fit){
+  output = fit$esa
+  return(output)
+}
+
 get_data_full = function(fit){
   output = fit$output.tmb$data.full
   return(output)
@@ -151,6 +156,7 @@ get_gam = function(fit, param = NULL, which.level = NULL){
 
 get_DX_new_gam = function(mod, newdata){
   newdata = newdata[, names(mod$var.summary), drop = FALSE]
+  
   newdata$gam.resp = 1
   olddata = mod$mf
   dat = rbind(olddata, newdata)
@@ -159,6 +165,28 @@ get_DX_new_gam = function(mod, newdata){
   return(output)
 }
 
+
+get_extended_par_value = function(gam, n_col_full, n_col_mask, par_value_linked, new_covariates){
+  if(n_col_full > 1){
+    gam.model = gam$gam_non_mask
+    DX_full_new = get_DX_new_gam(gam.model, new_covariates)
+  } else {
+    DX_full_new = matrix(1, ncol = 1, nrow = nrow(new_covariates))
+  }
+  
+  if(n_col_mask > 0){
+    gam.model = gam$gam_mask
+    DX_mask_new = get_DX_new_gam(gam.model, new_covariates)
+    #get rid of the first column since the intercept is not here
+    DX_mask_new = DX_mask_new[, -1, drop = FALSE]
+  } else {
+    DX_mask_new = NULL
+  }
+  
+  DX_new = cbind(DX_full_new, DX_mask_new)
+  output = as.vector(DX_new %*% as.matrix(par_value_linked, ncol = 1))
+  return(output)
+}
 
 ###########################################################################################################
 #simulate detection history, the key component of simulation
@@ -244,8 +272,7 @@ sim_det_history = function(fit, data_density){
     }
     
     #based on link function, back transform the values of parameters
-    if(link == 'log') data_dist_theta[[i]] = exp(data_dist_theta[[i]])
-    if(link == 'logit') data_dist_theta[[i]] = exp(data_dist_theta[[i]]) / (exp(data_dist_theta[[i]]) + 1)
+    data_dist_theta[[i]] = unlink.fun(link = link, value = data_dist_theta[[i]])
   }
   
   #merge the distances, parameters values and simulated number of animals together

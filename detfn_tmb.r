@@ -44,6 +44,7 @@ show_detfn_tmb <- function(fit, new_covariates = NULL, param_extend_skip = NULL,
                            main = NULL, xlab = NULL, ylab = NULL, col = NULL, add = FALSE, ...){
   library(mgcv)
   source('get_funs.r', local = TRUE)
+  source('support_functions.r', local = TRUE)
   det_fn = get_detfn(fit)
   
   if(is.null(xlab)) xlab = "Distance (m)"
@@ -93,6 +94,8 @@ show_detfn_tmb <- function(fit, new_covariates = NULL, param_extend_skip = NULL,
   }
   
   if(!is.null(new_covariates)){
+    #standardize new_covariates first
+    new_covariates = fit$scale.covs(new_covariates)
     print(paste0("Covariates for detect function's parameters are provided. Please make sure that, ",
                  "for each extended parameter which are not included in the argument 'param_extend_skip',",
                  "all covariates are provided"))
@@ -114,35 +117,16 @@ show_detfn_tmb <- function(fit, new_covariates = NULL, param_extend_skip = NULL,
     values = param_values[[i]]
     
     if((i %in% par_extend_name) & (!i %in% param_extend_skip)){
-      if(n_col_full > 1){
-        gam.model = get_gam(fit, i, "gam_non_mask")
-        DX_full_new = get_DX_new_gam(gam.model, new_covariates)
-      } else {
-        DX_full_new = matrix(1, ncol = 1, nrow = nrow(new_covariates))
-      }
-      
-      if(n_col_mask > 0){
-        gam.model = get_gam(fit, i, "gam_mask")
-        DX_mask_new = get_DX_new_gam(gam.model, new_covariates)
-        #get rid of the first column since the intercept is not here
-        DX_mask_new = DX_mask_new[, -1, drop = FALSE]
-      } else {
-        DX_mask_new = NULL
-      }
-      
-      DX_new = cbind(DX_full_new, DX_mask_new)
-      det_param_input[[i]] = as.vector(DX_new %*% as.matrix(values, ncol = 1))
-      
+      gam = get_gam(fit, i)
+      det_param_input[[i]] = get_extended_par_value(gam, n_col_full, n_col_mask, values, new_covariates)
     } else {
       det_param_input[[i]] = values[1]
     }
     
     #use 'link' to back-transform the parameter's value
-    if(link == 'log'){
-      det_param_input[[i]] = exp(det_param_input[[i]])
-    } else if(link == 'logit'){
-      det_param_input[[i]] = exp(det_param_input[[i]])/(1 + exp(det_param_input[[i]]))
-    }
+    
+    det_param_input[[i]] = unlink.fun(link = link, value = det_param_input[[i]])
+
     names(det_param_input[[i]]) = NULL
   }
   

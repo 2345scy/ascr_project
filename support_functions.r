@@ -627,7 +627,7 @@ split_item = function(dat, item){
 
 
 delta_method_ascr_tmb = function(cov_linked, param_values, link_funs = NULL, new_covariates = NULL,
-                                 name_og = NULL, name_extend = NULL, df_param = NULL,
+                                 pars = NULL, name_og = NULL, name_extend = NULL, df_param = NULL,
                                  gam.model.full = NULL, gam.output = NULL){
   
   #delta method, G(x) is a vector of n functions, where x is a vector of m variables
@@ -690,7 +690,7 @@ delta_method_ascr_tmb = function(cov_linked, param_values, link_funs = NULL, new
         stop('Critical Error.')
       }
       
-      if(par_name %in% name_extend){
+      if(par_name %in% name_extend & par_name %in% pars){
         
         if(n_col_full > 1){
           gam.model = gam.output[[par_name]][["gam_non_mask"]]
@@ -736,11 +736,18 @@ delta_method_ascr_tmb = function(cov_linked, param_values, link_funs = NULL, new
   }
   
   #for test purpose
-  print('for test use only, display the G\'(x) matrix')
-  print(G_grad)
-  print('end of test display')
+  #print('for test use only, display the G\'(x) matrix')
+  #print(G_grad)
+  #print('end of test display')
   
   return(G_grad %*% cov_linked %*% t(G_grad))
   
+}
+
+vector_to_df = function(vec){
+  name = names(vec)
+  if(is.null(name)) name = seq(length(vec))
+  output = data.frame(name = name, value = as.vector(vec))
+  return(output)
 }
 

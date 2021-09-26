@@ -27,19 +27,20 @@ source('test_data_preparation.r')
 #joint ss/toa fitting
 #Inhomogeneous density estimation
 #Multi-session models
-test_data("Multi-session models")
+test_data("Inhomogeneous density estimation")
 #short_name = "mul_s_with_extension"
 
 #the par.extend below is for "Multi-session models"
-par.extend = list(data = list(session = data.frame(session = 1:2, weather = c('rain', 'sunny')),
-                              trap = data.frame(session = rep(1:2, c(6,3)), trap = c(1:6, 1:3), 
-                                                brand = sample(c('a','b','c'), size = 9, replace = T))),
-                  model = list(g0 = "~weather", sigma = "~ brand"))
+#par.extend = list(data = list(session = data.frame(session = 1:2, weather = c('rain', 'sunny')),
+#                             trap = data.frame(session = rep(1:2, c(6,3)), trap = c(1:6, 1:3), 
+#                                                brand = sample(c('a','b','c'), size = 9, replace = T))),
+#                  model = list(g0 = "~weather", sigma = "~ brand"))
 
 
 #the par.extend below is for "Inhomogeneous density estimation"
 #par.extend$data[['trap']] = data.frame(session = 1, trap = 1:6, brand = c(rep('a', 3), rep('b', 3)))
 #par.extend$model[['sigma']] = "~brand"
+
 
 capt_input = create.capt(captures, traps = traps)
 
@@ -113,3 +114,33 @@ show_detfn_tmb(fit, new_covariates = new_data)
 #plot with extension of sigma, but ignore the extension on g0
 new_data = data.frame(weather = c('rain', 'sunny', 'rain'), brand = c('b', 'c', 'a'))
 show_detfn_tmb(fit, new_covariates = new_data, param_extend_skip = 'g0')
+
+
+#sample of ihd
+new_data = data.frame(x1 = 0.002, y1 = 0.05, brand = c('b', 'a'))
+show_detfn_tmb(fit, new_covariates = new_data, col = c(2, 4))
+
+
+##########################################################################################
+#demo for method vcov and coef
+#for ihd
+source('methods.r')
+vcov(fit)
+
+new_data1 = data.frame(x1 = 0.002, y1 = 0.05, brand = 'b')
+new_data2 = data.frame(brand = 'b')
+
+vcov(fit, type = 'fitted')
+vcov(fit, type = 'fitted', par = 'sigma')
+vcov(fit, type = 'fitted', new_covariates = new_data1)
+vcov(fit, type = 'fitted', par = 'sigma', new_covariates = new_data2)
+
+coef(fit, types = 'fitted')
+coef(fit, types = 'fitted', par = 'sigma')
+coef(fit, types = 'fitted', new_covariates = new_data1)
+coef(fit, types = 'fitted', par = 'sigma', new_covariates = new_data2)
+
+stdEr(fit, types = 'fitted')
+stdEr(fit, types = 'fitted', par = 'sigma')
+stdEr(fit, types = 'fitted', new_covariates = new_data1)
+stdEr(fit, types = 'fitted', par = 'sigma', new_covariates = new_data2)

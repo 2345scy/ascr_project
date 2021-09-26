@@ -1426,8 +1426,8 @@ output = function(data.par, data.full, data.traps, data.mask, data.dists.thetas,
                  "fit.ihd", "re.detfn", "fit.freqs", "first.calls", "scale.covs", "model.formula", "fgam", "all.covariates", 
                  "output.tmb")
   #create output for TMB model
-  out[['output.tmb']] = vector('list', 20)
-  names(out[['output.tmb']]) = c('coef_link', 'se_link', 'esa', 'DX', 'detfn', 'param.og', 'param.extend', 'param.fix', 
+  out[['output.tmb']] = vector('list', 19)
+  names(out[['output.tmb']]) = c('coef_link', 'se_link', 'DX', 'detfn', 'param.og', 'param.extend', 'param.fix', 
                                  'param.info.table', 'data.traps', 'data.full', 'data.mask', 'data.dists.thetas', 'dims',
                                  'avg_cue_rates', 'sound.speed', 'area_unit', 'ss.link', 'cutoff', 'gam_output')
   
