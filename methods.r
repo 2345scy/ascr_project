@@ -112,6 +112,8 @@ vcov.ascr_tmb = function(object, types = "linked", pars = NULL, new_covariates =
   if ("all" %in% types){
     types <- c("fitted", "derived", "linked")
   }
+  
+  #'og' below means original output from the object
   param_values_og = get_coef(object)
   cov_og = object$vcov
   name_dim_og = colnames(cov_og)
@@ -133,7 +135,9 @@ vcov.ascr_tmb = function(object, types = "linked", pars = NULL, new_covariates =
   
   #the original name is needed, in "name_og", "D.(Intercept)", "D.x1", "D.xxx" will be regarded as 'D' only
   #and the same to the other extendable parameters
-  name_og = character(length(name_dim))
+  
+  #the 'og' here means the original parameters name
+  name_og = ori_name(name_dim)
   
   #extract the link functions for all element in the linked covariance matrix
   #if new_covariates is provided, this "link_funs" will be useless as cov matrix of fitted and
@@ -145,16 +149,10 @@ vcov.ascr_tmb = function(object, types = "linked", pars = NULL, new_covariates =
   param_values = numeric(length(name_og))
   
   for(i in 1:length(name_dim)){
-    ##########################################################################################
-    #this part need to be improved as it will failed if parameter is "b0.ss" or "xx.ss"
-    tem = gsub("\\..+$", "", name_dim[i])
-    ##########################################################################################
-    
-    name_og[i] = tem
-    param_values[i] = param_values_og[[tem]][name_dim_og[i]]
-    if(!tem %in% name_extend){
-      name_dim[i] = tem
-      link_funs[i] = df_param[which(df_param$par == tem), 'link']
+    param_values[i] = param_values_og[[name_og[i]]][name_dim_og[i]]
+    if(!name_og[i] %in% name_extend){
+      name_dim[i] = name_og[i]
+      link_funs[i] = df_param[which(df_param$par == name_og[i]), 'link']
     } else {
       link_funs[i] = 'identity'
     }
@@ -293,6 +291,7 @@ confint.ascr_tmb = function(object, types = 'linked', level = 0.95, method = 'de
       colnames(output[[type]]) = col_name
     } else if(type == 'fitted'){
       if(linked){
+        tem = as.matrix(df_linked[, c('lower', 'upper')])
         
       } else {
         

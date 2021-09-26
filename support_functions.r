@@ -751,3 +751,58 @@ vector_to_df = function(vec){
   return(output)
 }
 
+ori_name = function(char){
+  #this order matters, we must try to match 'sigma.b0.ss' and 'sigma.toa' first
+  #otherwise "sigma.b0.ss.(Intercept)" will be recognized as 'sigma'
+  #so we must put 'sigma' behind any 'sigma.xx' parameters
+  fulllist.par = c('g0', 'lambda0', 'z', 'shape.1', 
+                   'shape.2', 'shape', 'scale', 'b0.ss', 'b1.ss',
+                   'b2.ss', 'sigma.ss', 'kappa', 'alpha', 'sigma.toa',
+                   "sigma.b0.ss", 'D', 'sigma')
+  #the pattern is the original parameter names followed by a dot
+  pattern = paste(fulllist.par, ".", sep = "")
+  n = length(char)
+  output = character(n)
+  for(i in 1:n){
+    pattern_matched = FALSE
+    
+    #firstly try to match the pattern like "kappa."
+    for(j in 1:length(pattern)){
+      tem = regexpr(pattern[j], char[i])
+      if(tem == 1){
+        pattern_matched = TRUE
+        output[i] = fulllist.par[j]
+        break
+      }
+    }
+    
+    #if we cannot find the pattern like "kappa.", then we check whether the input is just the original parameter name
+    
+    if(!pattern_matched){
+      for(j in 1:length(fulllist.par)){
+        if(char[i] == fulllist.par[j]){
+          pattern_matched = TRUE
+          output[i] = fulllist.par[j]
+          break
+        }
+      }
+    }
+    
+    if(!pattern_matched){
+      msg = paste0("Cannot find original parameter's name for the input: ", char[i])
+      stop(msg)
+    }
+    
+    #end of loop for char[i]
+  }
+  
+  
+  return(output)
+}
+
+
+
+
+
+
+
